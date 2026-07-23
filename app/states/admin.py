@@ -1,0 +1,35 @@
+from aiogram.fsm.state import State, StatesGroup
+
+
+class NewCard(StatesGroup):
+    name = State()
+    role = State()
+    quote = State()
+    telegram = State()
+    youtube = State()
+    twitch = State()
+    rarity = State()
+    photo = State()
+
+
+class EditCardField(StatesGroup):
+    waiting_value = State()  # data: card_id, field
+    waiting_photo = State()  # data: card_id
+
+
+class NewRarity(StatesGroup):
+    name = State()
+    weight = State()
+    token_reward = State()
+
+
+class EditRarityField(StatesGroup):
+    waiting_value = State()  # data: rarity_id, field
+
+
+class EditSetting(StatesGroup):
+    waiting_value = State()  # data: key
+
+
+class EmojiCapture(StatesGroup):
+    waiting_emoji = State()
