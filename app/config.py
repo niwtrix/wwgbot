@@ -8,7 +8,15 @@ load_dotenv(BASE_DIR / ".env")
 
 BOT_TOKEN = os.getenv("BOT_TOKEN", "")
 OWNER_IDS = {int(x) for x in os.getenv("OWNER_IDS", "").split(",") if x.strip()}
-PROXY_URL = os.getenv("PROXY_URL", "").strip() or None
+PROXY_URL = (
+    os.getenv("PROXY_URL", "").strip()
+    # PythonAnywhere's free tier injects these automatically for its outbound
+    # allowlist proxy — fall back to them so no manual proxy address is needed.
+    or os.getenv("https_proxy", "").strip()
+    or os.getenv("HTTPS_PROXY", "").strip()
+    or os.getenv("http_proxy", "").strip()
+    or os.getenv("HTTP_PROXY", "").strip()
+) or None
 WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET", "").strip()
 WEBHOOK_URL = os.getenv("WEBHOOK_URL", "").strip()
 
