@@ -4,7 +4,7 @@ meta:
     name: pip
 
 build:
-  args: "-r requirements.txt"
+  requirementsPath: requirements.txt
 
 run:
   command: gunicorn wsgi:application --bind 0.0.0.0:80
