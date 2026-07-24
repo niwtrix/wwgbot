@@ -20,7 +20,7 @@ PROXY_URL = (
 WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET", "").strip()
 WEBHOOK_URL = os.getenv("WEBHOOK_URL", "").strip()
 
-DB_PATH = BASE_DIR / "data" / "wwgang.sqlite3"
+DB_PATH = Path("/data/wwgang.sqlite3") if os.getenv("AMVERA") else BASE_DIR / "data" / "wwgang.sqlite3"
 
 _database_url = os.getenv("DATABASE_URL", "").strip()
 if _database_url:
