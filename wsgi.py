@@ -10,6 +10,9 @@ from app.db.engine import init_db
 
 logging.basicConfig(level=logging.INFO)
 
+if not WEBHOOK_SECRET:
+    raise RuntimeError("WEBHOOK_SECRET is not set — required for webhook mode")
+
 asyncio.run(init_db())
 
 bot, dp = create_bot_and_dispatcher()

@@ -1,6 +1,6 @@
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
-from app.db.models import Card, Rarity
+from app.db.models import Card, Case, Rarity
 
 CARDS_PAGE_SIZE = 8
 
@@ -99,12 +99,14 @@ def rarities_list_kb(rarities: list[Rarity]) -> InlineKeyboardMarkup:
 
 
 def rarity_edit_menu_kb(rarity: Rarity) -> InlineKeyboardMarkup:
+    case_only_text = "🎁 Только из кейсов: ВКЛ (тап — выключить)" if rarity.case_only else "🎁 Только из кейсов: ВЫКЛ (тап — включить)"
     rows = [
         [InlineKeyboardButton(text="✏️ Название", callback_data=f"adm:rfield:{rarity.id}:name")],
         [InlineKeyboardButton(text="✏️ Вес (шанс выпадения)", callback_data=f"adm:rfield:{rarity.id}:weight")],
         [InlineKeyboardButton(text="✏️ Награда токенами", callback_data=f"adm:rfield:{rarity.id}:token_reward")],
         [InlineKeyboardButton(text="✏️ Обычный emoji (запасной)", callback_data=f"adm:rfield:{rarity.id}:emoji_fallback")],
         [InlineKeyboardButton(text="🆔 Премиум emoji ID", callback_data=f"adm:rfield:{rarity.id}:emoji_id")],
+        [InlineKeyboardButton(text=case_only_text, callback_data=f"adm:rtogglecaseonly:{rarity.id}")],
         [InlineKeyboardButton(text="🗑 Удалить редкость", callback_data=f"adm:rdelask:{rarity.id}")],
         [InlineKeyboardButton(text="🔙 К списку редкостей", callback_data="adm:rarities")],
     ]
@@ -122,10 +124,66 @@ def confirm_delete_rarity_kb(rarity_id: str) -> InlineKeyboardMarkup:
     )
 
 
-def settings_menu_kb() -> InlineKeyboardMarkup:
+def cases_list_kb(cases: list[Case]) -> InlineKeyboardMarkup:
+    rows = []
+    for c in cases:
+        status = "" if c.is_active else "🚫 "
+        rows.append(
+            [InlineKeyboardButton(text=f"{status}🎁 {c.name} ({c.price_tokens} 🪙)", callback_data=f"adm:case:{c.id}")]
+        )
+    rows.append([InlineKeyboardButton(text="➕ Новый кейс", callback_data="adm:newcase")])
+    rows.append([InlineKeyboardButton(text="🔙 К настройкам", callback_data="adm:settings")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def case_edit_menu_kb(case: Case) -> InlineKeyboardMarkup:
+    toggle_text = "🚫 Деактивировать" if case.is_active else "✅ Активировать"
+    rows = [
+        [InlineKeyboardButton(text="✏️ Название", callback_data=f"adm:cafield:{case.id}:name")],
+        [InlineKeyboardButton(text="✏️ Цена (токены)", callback_data=f"adm:cafield:{case.id}:price_tokens")],
+        [InlineKeyboardButton(text="✏️ Описание", callback_data=f"adm:cafield:{case.id}:description")],
+        [InlineKeyboardButton(text="🎲 Содержимое (шансы по редкости)", callback_data=f"adm:caodds:{case.id}")],
+        [InlineKeyboardButton(text=toggle_text, callback_data=f"adm:catoggle:{case.id}")],
+        [InlineKeyboardButton(text="🗑 Удалить кейс", callback_data=f"adm:cadelask:{case.id}")],
+        [InlineKeyboardButton(text="🔙 К списку кейсов", callback_data="adm:cases")],
+    ]
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def confirm_delete_case_kb(case_id: int) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text="✅ Да, удалить", callback_data=f"adm:cadelyes:{case_id}"),
+                InlineKeyboardButton(text="❌ Отмена", callback_data=f"adm:case:{case_id}"),
+            ]
+        ]
+    )
+
+
+def case_odds_kb(case: Case, rarities: list[Rarity]) -> InlineKeyboardMarkup:
+    odds_by_rarity = {o.rarity_id: o.weight for o in case.odds}
+    rows = []
+    for r in rarities:
+        weight = odds_by_rarity.get(r.id)
+        label = f"{r.emoji_fallback} {r.name}: {weight:g}" if weight else f"{r.emoji_fallback} {r.name}: —"
+        rows.append([InlineKeyboardButton(text=label, callback_data=f"adm:casetrarity:{case.id}:{r.id}")])
+    rows.append([InlineKeyboardButton(text="🔙 Назад", callback_data=f"adm:case:{case.id}")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def settings_menu_kb(health_report_enabled: bool) -> InlineKeyboardMarkup:
+    toggle_text = "🔕 Выключить отчёты о статусе" if health_report_enabled else "🔔 Включить отчёты о статусе"
     rows = [
         [InlineKeyboardButton(text="⏱ Кулдаун (минуты)", callback_data="adm:sfield:cooldown_minutes")],
         [InlineKeyboardButton(text="🔁 Бонус токенов за дубль", callback_data="adm:sfield:duplicate_bonus")],
+        [InlineKeyboardButton(text="💰 Цена доп. ролла (токены)", callback_data="adm:sfield:extra_roll_price")],
+        [InlineKeyboardButton(text="🛡 Защита от дублей: мин. пуллов", callback_data="adm:sfield:pity_floor_pulls")],
+        [InlineKeyboardButton(text="🛡 Защита от дублей: пуллов на восстановление", callback_data="adm:sfield:pity_ramp_pulls")],
+        [InlineKeyboardButton(text="🛡 Защита от дублей: мин. доля шанса", callback_data="adm:sfield:pity_min_weight_fraction")],
+        [InlineKeyboardButton(text=toggle_text, callback_data="adm:togglehealthreport")],
+        [InlineKeyboardButton(text="⏱ Интервал отчётов (минуты)", callback_data="adm:sfield:health_report_interval_minutes")],
+        [InlineKeyboardButton(text="🎁 Кейсы", callback_data="adm:cases")],
         [InlineKeyboardButton(text="🔙 В меню админки", callback_data="adm:main")],
     ]
     return InlineKeyboardMarkup(inline_keyboard=rows)

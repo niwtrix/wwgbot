@@ -1,8 +1,24 @@
 import asyncio
 import logging
 
+from aiogram import Bot
+
 from app.bot_setup import create_bot_and_dispatcher, set_bot_commands
 from app.db.engine import init_db
+from app.services.health_report import health_report_loop
+
+KEEP_WARM_INTERVAL_SECONDS = 15
+
+
+async def keep_warm(bot: Bot) -> None:
+    """Periodically ping Telegram so the proxy tunnel's connection never goes idle
+    long enough to be torn down (avoids a slow reconnect on the next real request)."""
+    while True:
+        try:
+            await bot.get_me()
+        except Exception:
+            logging.warning("keep-warm ping failed", exc_info=True)
+        await asyncio.sleep(KEEP_WARM_INTERVAL_SECONDS)
 
 
 async def main() -> None:
@@ -18,6 +34,9 @@ async def main() -> None:
         await bot.delete_webhook(drop_pending_updates=True)
     except Exception:
         logging.warning("Could not delete webhook on startup", exc_info=True)
+
+    asyncio.create_task(keep_warm(bot))
+    asyncio.create_task(health_report_loop(bot))
 
     await dp.start_polling(bot)
 

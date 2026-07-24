@@ -22,6 +22,7 @@ class Rarity(Base):
     emoji_id: Mapped[str | None] = mapped_column(String(64), nullable=True)  # custom_emoji_id
     emoji_fallback: Mapped[str] = mapped_column(String(16), default="🔹")
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    case_only: Mapped[bool] = mapped_column(Boolean, default=False)  # excluded from normal rolls
 
     cards: Mapped[list["Card"]] = relationship(back_populates="rarity")
 
@@ -65,6 +66,7 @@ class UserCard(Base):
     count: Mapped[int] = mapped_column(Integer, default=0)
     first_obtained_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     last_obtained_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    pulls_since_obtained: Mapped[int] = mapped_column(Integer, default=0)  # dup-protection counter
 
     card: Mapped["Card"] = relationship()
 
@@ -74,3 +76,29 @@ class Setting(Base):
 
     key: Mapped[str] = mapped_column(String(64), primary_key=True)
     value: Mapped[str] = mapped_column(String(256))
+
+
+class Case(Base):
+    __tablename__ = "cases"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    slug: Mapped[str] = mapped_column(String(64), unique=True)
+    name: Mapped[str] = mapped_column(String(128))
+    price_tokens: Mapped[int] = mapped_column(Integer, default=100)
+    description: Mapped[str] = mapped_column(Text, default="")
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+
+    odds: Mapped[list["CaseOdds"]] = relationship(back_populates="case", cascade="all, delete-orphan")
+
+
+class CaseOdds(Base):
+    __tablename__ = "case_odds"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    case_id: Mapped[int] = mapped_column(ForeignKey("cases.id"))
+    rarity_id: Mapped[str] = mapped_column(ForeignKey("rarities.id"))
+    weight: Mapped[float] = mapped_column(Float, default=100.0)
+
+    case: Mapped["Case"] = relationship(back_populates="odds")
+    rarity: Mapped["Rarity"] = relationship()

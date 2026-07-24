@@ -33,3 +33,16 @@ class EditSetting(StatesGroup):
 
 class EmojiCapture(StatesGroup):
     waiting_emoji = State()
+
+
+class NewCase(StatesGroup):
+    name = State()
+    price_tokens = State()
+
+
+class EditCaseField(StatesGroup):
+    waiting_value = State()  # data: case_id, field
+
+
+class EditCaseOdds(StatesGroup):
+    waiting_value = State()  # data: case_id, rarity_id

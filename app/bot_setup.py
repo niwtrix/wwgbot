@@ -7,10 +7,12 @@ from aiogram.types import BotCommand, BotCommandScopeChat, BotCommandScopeDefaul
 from app.config import BOT_TOKEN, OWNER_IDS, PROXY_URL
 from app.handlers import admin, user
 from app.middlewares.db import DbSessionMiddleware
+from app.middlewares.timing import TimingMiddleware
 
 USER_COMMANDS = [
     BotCommand(command="start", description="Начать"),
     BotCommand(command="card", description="Получить карточку"),
+    BotCommand(command="cases", description="Кейсы за токены"),
     BotCommand(command="profile", description="Мой профиль"),
     BotCommand(command="mycards", description="Мои карточки"),
     BotCommand(command="top", description="Топ игроков"),
@@ -33,6 +35,8 @@ def create_bot_and_dispatcher() -> tuple[Bot, Dispatcher]:
 
     dp.message.middleware(DbSessionMiddleware())
     dp.callback_query.middleware(DbSessionMiddleware())
+    dp.message.middleware(TimingMiddleware())
+    dp.callback_query.middleware(TimingMiddleware())
 
     dp.include_router(admin.router)
     dp.include_router(user.router)

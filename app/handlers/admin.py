@@ -10,7 +10,8 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.cards_repo import find_card_by_query, get_card, get_rarity, list_active_cards, list_all_cards, list_rarities
-from app.db.models import Card, Rarity, User, UserCard
+from app.db.cases_repo import get_case, list_cases, set_case_odds
+from app.db.models import Card, Case, Rarity, User, UserCard
 from app.db.settings_repo import get_setting, set_setting
 from app.filters.owner import IsOwner
 from app.keyboards.admin import (
@@ -18,7 +19,11 @@ from app.keyboards.admin import (
     back_to_main_kb,
     card_edit_menu_kb,
     cards_list_kb,
+    case_edit_menu_kb,
+    case_odds_kb,
+    cases_list_kb,
     confirm_delete_card_kb,
+    confirm_delete_case_kb,
     confirm_delete_rarity_kb,
     rarities_list_kb,
     rarity_edit_menu_kb,
@@ -26,7 +31,17 @@ from app.keyboards.admin import (
     settings_menu_kb,
 )
 from app.services.card_sender import send_card
-from app.states.admin import EditCardField, EditRarityField, EditSetting, EmojiCapture, NewCard, NewRarity
+from app.states.admin import (
+    EditCardField,
+    EditCaseField,
+    EditCaseOdds,
+    EditRarityField,
+    EditSetting,
+    EmojiCapture,
+    NewCard,
+    NewCase,
+    NewRarity,
+)
 
 router = Router(name="admin")
 router.message.filter(IsOwner())
@@ -57,17 +72,24 @@ SETTING_LABELS = {
 ADMIN_HELP_TEXT = (
     "🆘 <b>Справка для админов</b>\n\n"
     "<b>/admin</b> — открыть панель управления (всё делается кнопками).\n\n"
-    "<b>/testcard [имя]</b> — показать карточку так, как её увидит игрок (кнопки, редкость, фото), "
-    "без влияния на профиль/токены/кулдаун. Без аргумента — случайная активная карточка.\n\n"
+    "<b>/testcard [имя или редкость]</b> — показать карточку так, как её увидит игрок (кнопки, редкость, фото), "
+    "без влияния на профиль/токены/кулдаун. По имени/slug — конкретную карточку, по названию редкости "
+    "(например «Легендарная») — случайную карточку этой редкости. Без аргумента — случайная активная карточка.\n\n"
     "<b>Карточки участников</b>\n"
     "— список всех карточек, добавление нового участника, редактирование имени/роли/цитаты/ссылок, "
     "замена фото (просто пришли новое фото в чат), смена редкости, деактивация без удаления, удаление насовсем.\n\n"
     "<b>Редкости</b>\n"
     "— свои уровни редкости: название, вес (чем больше вес — тем чаще выпадает), награда токенами, "
-    "запасной emoji и ID премиум-эмодзи. Можно добавлять новые уровни и удалять неиспользуемые "
-    "(если к редкости привязаны карточки — сначала перепривяжи их к другой).\n\n"
+    "запасной emoji и ID премиум-эмодзи. «Только из кейсов» — редкость исключается из обычного ролла "
+    "(например Хроматическая — доступна только через кейсы). Можно добавлять новые уровни и удалять "
+    "неиспользуемые (если к редкости привязаны карточки — сначала перепривяжи их к другой).\n\n"
+    "<b>Кейсы</b>\n"
+    "— покупаются за токены, содержимое задаётся отдельными шансами по редкости (не связано с шансами "
+    "обычного ролла). Создание, цена, описание, вкл/выкл, удаление, редактирование содержимого.\n\n"
     "<b>Настройки</b>\n"
-    "— кулдаун между получениями карточек и бонус токенов за дубликат.\n\n"
+    "— кулдаун между картами, бонус токенов за дубликат, цена доп. ролла за токены, параметры защиты "
+    "от дублей (мин. кол-во пуллов до повтора карты, сколько пуллов идёт восстановление шанса, "
+    "минимальная доля шанса сразу после порога), вкл/выкл и интервал автоотчётов о статусе бота в личку.\n\n"
     "<b>ID эмодзи</b>\n"
     "— чтобы использовать свой премиум-эмодзи как иконку редкости, пришли его текстом в чат "
     "(вставь эмодзи из своей Premium-панели, не обычный смайл с клавиатуры) — бот пришлёт в ответ "
@@ -125,10 +147,25 @@ async def cmd_testcard(message: Message, session: AsyncSession, bot: Bot) -> Non
     query = message.text.split(maxsplit=1)
     card = None
     if len(query) > 1:
-        card = await find_card_by_query(session, query[1].strip())
+        raw_query = query[1].strip()
+        card = await find_card_by_query(session, raw_query)
         if card is None:
-            await message.answer(f"Не нашёл карточку по запросу «{query[1].strip()}». Проверь имя/slug.")
-            return
+            rarities = await list_rarities(session)
+            matched_rarity = next(
+                (r for r in rarities if r.id.lower() == raw_query.lower() or r.name.lower() == raw_query.lower()),
+                None,
+            )
+            if matched_rarity is not None:
+                cards = [c for c in await list_active_cards(session) if c.rarity_id == matched_rarity.id]
+                if not cards:
+                    await message.answer(f"В редкости «{matched_rarity.name}» пока нет активных карточек.")
+                    return
+                card = random.choice(cards)
+            else:
+                await message.answer(
+                    f"Не нашёл карточку или редкость по запросу «{raw_query}». Проверь имя/slug/название редкости."
+                )
+                return
     else:
         cards = await list_active_cards(session)
         if not cards:
@@ -628,19 +665,59 @@ async def cb_rarity_delete_yes(callback: CallbackQuery, session: AsyncSession) -
     await callback.answer()
 
 
+@router.callback_query(F.data.startswith("adm:rtogglecaseonly:"))
+async def cb_rarity_toggle_case_only(callback: CallbackQuery, session: AsyncSession) -> None:
+    rarity_id = callback.data.split(":")[2]
+    rarity = await get_rarity(session, rarity_id)
+    if rarity is None:
+        await callback.answer("Редкость не найдена.", show_alert=True)
+        return
+    rarity.case_only = not rarity.case_only
+    await session.commit()
+    await callback.message.edit_reply_markup(reply_markup=rarity_edit_menu_kb(rarity))
+    await callback.answer("Обновлено")
+
+
 # ---------- Settings ----------
+
+
+async def _settings_text(session: AsyncSession) -> str:
+    cooldown = await get_setting(session, "cooldown_minutes")
+    dup_bonus = await get_setting(session, "duplicate_bonus")
+    extra_roll_price = await get_setting(session, "extra_roll_price")
+    pity_floor = await get_setting(session, "pity_floor_pulls")
+    pity_ramp = await get_setting(session, "pity_ramp_pulls")
+    pity_min = await get_setting(session, "pity_min_weight_fraction")
+    hr_enabled = await get_setting(session, "health_report_enabled")
+    hr_interval = await get_setting(session, "health_report_interval_minutes")
+    return (
+        "⚙️ <b>Настройки</b>\n\n"
+        f"Кулдаун: {cooldown} мин\n"
+        f"Бонус токенов за дубль: {dup_bonus}\n"
+        f"Цена доп. ролла: {extra_roll_price} 🪙\n"
+        f"Защита от дублей: мин. {pity_floor} пуллов, восстановление за {pity_ramp} пуллов, "
+        f"мин. доля шанса {pity_min}\n"
+        f"Отчёты о статусе: {'включены' if hr_enabled == '1' else 'выключены'}, каждые {hr_interval} мин"
+    )
 
 
 @router.callback_query(F.data == "adm:settings")
 async def cb_settings(callback: CallbackQuery, session: AsyncSession) -> None:
-    cooldown = await get_setting(session, "cooldown_minutes")
-    dup_bonus = await get_setting(session, "duplicate_bonus")
-    text = (
-        "⚙️ <b>Настройки</b>\n\n"
-        f"Кулдаун: {cooldown} мин\n"
-        f"Бонус токенов за дубль: {dup_bonus}"
+    hr_enabled = (await get_setting(session, "health_report_enabled")) == "1"
+    await callback.message.edit_text(
+        await _settings_text(session), parse_mode="HTML", reply_markup=settings_menu_kb(hr_enabled)
     )
-    await callback.message.edit_text(text, parse_mode="HTML", reply_markup=settings_menu_kb())
+    await callback.answer()
+
+
+@router.callback_query(F.data == "adm:togglehealthreport")
+async def cb_toggle_health_report(callback: CallbackQuery, session: AsyncSession) -> None:
+    current = await get_setting(session, "health_report_enabled")
+    await set_setting(session, "health_report_enabled", "0" if current == "1" else "1")
+    hr_enabled = (await get_setting(session, "health_report_enabled")) == "1"
+    await callback.message.edit_text(
+        await _settings_text(session), parse_mode="HTML", reply_markup=settings_menu_kb(hr_enabled)
+    )
     await callback.answer()
 
 
@@ -650,22 +727,240 @@ async def cb_setting_field(callback: CallbackQuery, state: FSMContext) -> None:
     await state.set_state(EditSetting.waiting_value)
     await state.update_data(key=key)
     label = SETTING_LABELS.get(key, key)
-    await callback.message.answer(f"Пришли новое значение для «{label}» (целое число), или /cancel:")
+    hint = "число от 0 до 1, например 0.1" if key == "pity_min_weight_fraction" else "целое число"
+    await callback.message.answer(f"Пришли новое значение для «{label}» ({hint}), или /cancel:")
     await callback.answer()
 
 
 @router.message(EditSetting.waiting_value)
 async def on_setting_value(message: Message, state: FSMContext, session: AsyncSession) -> None:
     data = await state.get_data()
+    key = data["key"]
     raw = message.text.strip()
+    if key == "pity_min_weight_fraction":
+        try:
+            value = float(raw.replace(",", "."))
+            if not (0 <= value <= 1):
+                raise ValueError
+        except ValueError:
+            await message.answer("Нужно число от 0 до 1, например 0.1. Попробуй ещё раз:")
+            return
+        raw = str(value)
+    else:
+        try:
+            int(raw)
+        except ValueError:
+            await message.answer("Нужно целое число. Попробуй ещё раз:")
+            return
+    await set_setting(session, key, raw)
+    await state.clear()
+    await message.answer("✅ Настройка обновлена.", reply_markup=back_to_main_kb())
+
+
+# ---------- Cases ----------
+
+CASE_FIELD_LABELS = {
+    "name": "название",
+    "price_tokens": "цену (целое число токенов)",
+    "description": "описание",
+}
+
+
+@router.callback_query(F.data == "adm:cases")
+async def cb_cases_list(callback: CallbackQuery, session: AsyncSession) -> None:
+    cases = await list_cases(session)
+    await callback.message.edit_text(
+        "🎁 <b>Кейсы</b>\n\nВыбери кейс или создай новый:", parse_mode="HTML", reply_markup=cases_list_kb(cases)
+    )
+    await callback.answer()
+
+
+def _case_detail_text(case: Case) -> str:
+    lines = [
+        f"🎁 <b>{case.name}</b>\n",
+        f"Цена: {case.price_tokens} 🪙",
+        f"Статус: {'активен ✅' if case.is_active else 'выключен 🚫'}",
+    ]
+    if case.description:
+        lines.append(f"Описание: {case.description}")
+    lines.append("")
+    lines.append("Содержимое:")
+    if case.odds:
+        for o in case.odds:
+            lines.append(f"{o.rarity.emoji_fallback} {o.rarity.name}: вес {o.weight:g}")
+    else:
+        lines.append("— пусто, добавь редкости через «Содержимое» —")
+    return "\n".join(lines)
+
+
+@router.callback_query(F.data.startswith("adm:case:"))
+async def cb_case_detail(callback: CallbackQuery, session: AsyncSession) -> None:
+    case_id = int(callback.data.split(":")[2])
+    case = await get_case(session, case_id)
+    if case is None:
+        await callback.answer("Кейс не найден.", show_alert=True)
+        return
+    await callback.message.edit_text(_case_detail_text(case), parse_mode="HTML", reply_markup=case_edit_menu_kb(case))
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("adm:cafield:"))
+async def cb_case_field(callback: CallbackQuery, state: FSMContext) -> None:
+    _, _, case_id, field = callback.data.split(":")
+    await state.set_state(EditCaseField.waiting_value)
+    await state.update_data(case_id=int(case_id), field=field)
+    label = CASE_FIELD_LABELS.get(field, field)
+    await callback.message.answer(f"Пришли новое значение для «{label}», или /cancel:")
+    await callback.answer()
+
+
+@router.message(EditCaseField.waiting_value)
+async def on_case_field_value(message: Message, state: FSMContext, session: AsyncSession) -> None:
+    data = await state.get_data()
+    case = await get_case(session, data["case_id"])
+    if case is None:
+        await state.clear()
+        await message.answer("Кейс не найден.", reply_markup=back_to_main_kb())
+        return
+
+    field = data["field"]
+    raw = message.text.strip()
+    if field == "price_tokens":
+        try:
+            case.price_tokens = int(raw)
+        except ValueError:
+            await message.answer("Нужно целое число. Попробуй ещё раз:")
+            return
+    else:
+        setattr(case, field, raw)
+
+    await session.commit()
+    await state.clear()
+    await message.answer(f"✅ Обновлено: {case.name}", reply_markup=back_to_main_kb())
+
+
+@router.callback_query(F.data == "adm:newcase")
+async def cb_newcase_start(callback: CallbackQuery, state: FSMContext) -> None:
+    await state.set_state(NewCase.name)
+    await callback.message.answer("Название нового кейса, или /cancel:")
+    await callback.answer()
+
+
+@router.message(NewCase.name)
+async def on_newcase_name(message: Message, state: FSMContext) -> None:
+    await state.update_data(name=message.text.strip())
+    await state.set_state(NewCase.price_tokens)
+    await message.answer("Цена кейса в токенах (целое число):")
+
+
+@router.message(NewCase.price_tokens)
+async def on_newcase_price(message: Message, state: FSMContext, session: AsyncSession) -> None:
     try:
-        int(raw)
+        price = int(message.text.strip())
     except ValueError:
         await message.answer("Нужно целое число. Попробуй ещё раз:")
         return
-    await set_setting(session, data["key"], raw)
+    data = await state.get_data()
+
+    slug_base = re.sub(r"[^a-z0-9_]+", "", data["name"].lower()) or "case"
+    slug = slug_base
+    n = 1
+    while (await session.execute(select(Case).where(Case.slug == slug))).scalar_one_or_none():
+        n += 1
+        slug = f"{slug_base}{n}"
+
+    result = await session.execute(select(func.max(Case.sort_order)))
+    max_order = result.scalar_one() or 0
+
+    case = Case(slug=slug, name=data["name"], price_tokens=price, sort_order=max_order + 1)
+    session.add(case)
+    await session.commit()
     await state.clear()
-    await message.answer("✅ Настройка обновлена.", reply_markup=back_to_main_kb())
+    await message.answer(
+        f"✅ Кейс «{case.name}» создан. Не забудь добавить содержимое через «Содержимое».",
+        reply_markup=admin_main_menu(),
+    )
+
+
+@router.callback_query(F.data.startswith("adm:catoggle:"))
+async def cb_case_toggle(callback: CallbackQuery, session: AsyncSession) -> None:
+    case_id = int(callback.data.split(":")[2])
+    case = await get_case(session, case_id)
+    if case is None:
+        await callback.answer("Кейс не найден.", show_alert=True)
+        return
+    case.is_active = not case.is_active
+    await session.commit()
+    await callback.message.edit_text(_case_detail_text(case), parse_mode="HTML", reply_markup=case_edit_menu_kb(case))
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("adm:cadelask:"))
+async def cb_case_delete_ask(callback: CallbackQuery) -> None:
+    case_id = int(callback.data.split(":")[2])
+    await callback.message.edit_reply_markup(reply_markup=confirm_delete_case_kb(case_id))
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("adm:cadelyes:"))
+async def cb_case_delete_yes(callback: CallbackQuery, session: AsyncSession) -> None:
+    case_id = int(callback.data.split(":")[2])
+    case = await get_case(session, case_id)
+    if case:
+        await session.delete(case)
+        await session.commit()
+    cases = await list_cases(session)
+    await callback.message.edit_text("🗑 Кейс удалён.", reply_markup=cases_list_kb(cases))
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("adm:caodds:"))
+async def cb_case_odds(callback: CallbackQuery, session: AsyncSession) -> None:
+    case_id = int(callback.data.split(":")[2])
+    case = await get_case(session, case_id)
+    if case is None:
+        await callback.answer("Кейс не найден.", show_alert=True)
+        return
+    rarities = await list_rarities(session)
+    await callback.message.edit_text(
+        f"🎲 <b>Содержимое кейса «{case.name}»</b>\n\n"
+        "Тапни редкость, чтобы задать её вес в этом кейсе (0 — убрать из кейса).",
+        parse_mode="HTML",
+        reply_markup=case_odds_kb(case, rarities),
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("adm:casetrarity:"))
+async def cb_case_odds_field(callback: CallbackQuery, state: FSMContext) -> None:
+    _, _, case_id, rarity_id = callback.data.split(":")
+    await state.set_state(EditCaseOdds.waiting_value)
+    await state.update_data(case_id=int(case_id), rarity_id=rarity_id)
+    await callback.message.answer(
+        "Пришли вес этой редкости в кейсе (число, 0 — убрать из кейса), или /cancel:"
+    )
+    await callback.answer()
+
+
+@router.message(EditCaseOdds.waiting_value)
+async def on_case_odds_value(message: Message, state: FSMContext, session: AsyncSession) -> None:
+    data = await state.get_data()
+    raw = message.text.strip().replace(",", ".")
+    try:
+        weight = float(raw)
+        if weight < 0:
+            raise ValueError
+    except ValueError:
+        await message.answer("Нужно неотрицательное число, например 100 или 0. Попробуй ещё раз:")
+        return
+
+    await set_case_odds(session, data["case_id"], data["rarity_id"], weight)
+    case = await get_case(session, data["case_id"])
+    await state.clear()
+    await message.answer(
+        f"✅ Обновлено содержимое кейса «{case.name}».",
+        reply_markup=back_to_main_kb(),
+    )
 
 
 # ---------- Stats ----------

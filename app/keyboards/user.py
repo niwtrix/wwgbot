@@ -1,6 +1,23 @@
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
-from app.db.models import Card
+from app.db.models import Card, Case
+
+
+def buy_roll_kb(price: int, affordable: bool) -> InlineKeyboardMarkup:
+    text = f"💰 Купить доп. ролл ({price} 🪙)" if affordable else f"💰 Купить доп. ролл ({price} 🪙) — не хватает токенов"
+    rows = [[InlineKeyboardButton(text=text, callback_data="buyroll" if affordable else "noop")]]
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def cases_list_kb(cases: list[Case], user_tokens: int) -> InlineKeyboardMarkup:
+    rows = []
+    for c in cases:
+        affordable = user_tokens >= c.price_tokens
+        text = f"🎁 {c.name} — {c.price_tokens} 🪙" if affordable else f"🎁 {c.name} — {c.price_tokens} 🪙 (не хватает)"
+        rows.append(
+            [InlineKeyboardButton(text=text, callback_data=f"opencase:{c.id}" if affordable else "noop")]
+        )
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 def card_links_kb(card: Card) -> InlineKeyboardMarkup | None:

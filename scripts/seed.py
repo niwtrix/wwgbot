@@ -8,16 +8,16 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from sqlalchemy import select  # noqa: E402
 
 from app.config import BASE_DIR  # noqa: E402
-from app.db.defaults import DEFAULT_RARITIES, DEFAULT_SETTINGS  # noqa: E402
+from app.db.defaults import DEFAULT_CASES, DEFAULT_RARITIES, DEFAULT_SETTINGS  # noqa: E402
 from app.db.engine import async_session, init_db  # noqa: E402
-from app.db.models import Card, Rarity, Setting  # noqa: E402
+from app.db.models import Card, Case, CaseOdds, Rarity, Setting  # noqa: E402
 
 CARDS_SEED_PATH = BASE_DIR / "data" / "cards_seed.json"
 
 
 async def seed_rarities() -> None:
     async with async_session() as session:
-        for rarity_id, name, weight, token_reward, emoji_fallback, sort_order in DEFAULT_RARITIES:
+        for rarity_id, name, weight, token_reward, emoji_fallback, sort_order, case_only in DEFAULT_RARITIES:
             existing = await session.get(Rarity, rarity_id)
             if existing:
                 continue
@@ -29,8 +29,29 @@ async def seed_rarities() -> None:
                     token_reward=token_reward,
                     emoji_fallback=emoji_fallback,
                     sort_order=sort_order,
+                    case_only=case_only,
                 )
             )
+        await session.commit()
+
+
+async def seed_cases() -> None:
+    async with async_session() as session:
+        for slug, name, price_tokens, description, sort_order, odds in DEFAULT_CASES:
+            result = await session.execute(select(Case).where(Case.slug == slug))
+            if result.scalar_one_or_none():
+                continue
+            case = Case(
+                slug=slug,
+                name=name,
+                price_tokens=price_tokens,
+                description=description,
+                sort_order=sort_order,
+            )
+            session.add(case)
+            await session.flush()
+            for rarity_id, weight in odds:
+                session.add(CaseOdds(case_id=case.id, rarity_id=rarity_id, weight=weight))
         await session.commit()
 
 
@@ -70,7 +91,7 @@ async def seed_cards() -> None:
                     youtube_url=c["youtube"],
                     twitch_url=c["twitch"],
                     photo_file=c["photo_file"],
-                    rarity_id=c["default_rarity"],
+                    rarity_id=c["rarity"],
                 )
             )
             added += 1
@@ -82,6 +103,7 @@ async def main() -> None:
     await init_db()
     await seed_rarities()
     await seed_settings()
+    await seed_cases()
     await seed_cards()
     print("Seeding complete.")
 
