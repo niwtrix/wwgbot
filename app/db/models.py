@@ -126,6 +126,16 @@ class Trade(Base):
     items: Mapped[list["TradeItem"]] = relationship(back_populates="trade", cascade="all, delete-orphan")
 
 
+class ActivityLog(Base):
+    __tablename__ = "activity_log"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    event_type: Mapped[str] = mapped_column(String(32))
+    user_id: Mapped[int | None] = mapped_column(BigInteger, ForeignKey("users.id"), nullable=True)
+    detail: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
 class TradeItem(Base):
     __tablename__ = "trade_items"
 

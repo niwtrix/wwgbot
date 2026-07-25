@@ -10,12 +10,14 @@ from aiogram.types import CallbackQuery, Message
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.db.activity_repo import EVENT_LABELS, list_events, log_event
 from app.db.cards_repo import find_card_by_query, get_card, get_rarity, list_active_cards, list_all_cards, list_rarities
 from app.db.cases_repo import get_case, list_cases, set_case_odds
 from app.db.models import Card, Case, Rarity, User, UserCard
 from app.db.settings_repo import get_setting, set_setting
 from app.filters.owner import IsOwner
 from app.keyboards.admin import (
+    activity_log_kb,
     admin_main_menu,
     back_to_main_kb,
     card_edit_menu_kb,
@@ -1083,6 +1085,10 @@ async def cb_broadcast_send(callback: CallbackQuery, state: FSMContext, session:
             failed += 1
         await asyncio.sleep(0.05)
 
+    admin_name = f"@{callback.from_user.username}" if callback.from_user.username else callback.from_user.full_name
+    log_event(session, "broadcast", callback.from_user.id, f"{admin_name}: доставлено {sent}, не удалось {failed}")
+    await session.commit()
+
     await callback.message.answer(
         f"✅ Рассылка завершена.\nДоставлено: {sent}\nНе удалось (бот заблокирован и т.п.): {failed}",
         reply_markup=admin_main_menu(),
@@ -1142,12 +1148,43 @@ async def on_granttokens_amount(message: Message, state: FSMContext, session: As
         return
 
     user.tokens = max(0, user.tokens + amount)
-    await session.commit()
     sign = "+" if amount >= 0 else ""
+    admin_name = f"@{message.from_user.username}" if message.from_user.username else message.from_user.full_name
+    log_event(
+        session, "token_grant", message.from_user.id,
+        f"{admin_name} начислил(а) {data['target_label']}: {sign}{amount} 🪙 (стало {user.tokens})",
+    )
+    await session.commit()
     await message.answer(
         f"✅ {data['target_label']}: {sign}{amount} 🪙. Теперь у него {user.tokens} 🪙.",
         reply_markup=admin_main_menu(),
     )
+
+
+# ---------- Activity log ----------
+
+LOG_PAGE_SIZE = 12
+
+
+@router.callback_query(F.data.startswith("adm:log:"))
+async def cb_activity_log(callback: CallbackQuery, session: AsyncSession) -> None:
+    _, _, key, page = callback.data.split(":")
+    event_type = None if key == "all" else key
+    events, total_pages = await list_events(session, event_type, int(page), LOG_PAGE_SIZE)
+
+    label = "Все события" if event_type is None else EVENT_LABELS.get(event_type, event_type)
+    lines = [f"📜 <b>Лог событий</b> ({label})\n"]
+    if not events:
+        lines.append("Пока пусто.")
+    else:
+        for e in events:
+            ts = e.created_at.strftime("%d.%m %H:%M")
+            lines.append(f"{ts} — {e.detail}")
+
+    await callback.message.edit_text(
+        "\n".join(lines), parse_mode="HTML", reply_markup=activity_log_kb(event_type, int(page), total_pages)
+    )
+    await callback.answer()
 
 
 # ---------- Stats ----------

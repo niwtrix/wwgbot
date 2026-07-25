@@ -1,5 +1,6 @@
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
+from app.db.activity_repo import EVENT_LABELS, EVENT_TYPES
 from app.db.models import Card, Case, Rarity
 
 CARDS_PAGE_SIZE = 8
@@ -12,6 +13,7 @@ def admin_main_menu() -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text="⚙️ Настройки", callback_data="adm:settings")],
         [InlineKeyboardButton(text="📊 Статистика", callback_data="adm:stats")],
         [InlineKeyboardButton(text="👥 Пользователи", callback_data="adm:users:0")],
+        [InlineKeyboardButton(text="📜 Лог событий", callback_data="adm:log:all:0")],
         [InlineKeyboardButton(text="🪙 Начислить токены", callback_data="adm:granttokens")],
         [InlineKeyboardButton(text="📢 Рассылка", callback_data="adm:broadcast")],
         [InlineKeyboardButton(text="🆔 Получить ID эмодзи", callback_data="adm:getemoji")],
@@ -172,6 +174,35 @@ def case_odds_kb(case: Case, rarities: list[Rarity]) -> InlineKeyboardMarkup:
         label = f"{r.emoji_fallback} {r.name}: {weight:g}" if weight else f"{r.emoji_fallback} {r.name}: —"
         rows.append([InlineKeyboardButton(text=label, callback_data=f"adm:casetrarity:{case.id}:{r.id}")])
     rows.append([InlineKeyboardButton(text="🔙 Назад", callback_data=f"adm:case:{case.id}")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def activity_log_kb(event_type: str | None, page: int, total_pages: int) -> InlineKeyboardMarkup:
+    all_label = "✅ Все" if event_type is None else "Все"
+    rows = [[InlineKeyboardButton(text=all_label, callback_data="adm:log:all:0")]]
+
+    filter_row = []
+    for et in EVENT_TYPES:
+        label = EVENT_LABELS[et]
+        if event_type == et:
+            label = "✅ " + label
+        filter_row.append(InlineKeyboardButton(text=label, callback_data=f"adm:log:{et}:0"))
+        if len(filter_row) == 2:
+            rows.append(filter_row)
+            filter_row = []
+    if filter_row:
+        rows.append(filter_row)
+
+    key = event_type or "all"
+    nav = []
+    if page > 0:
+        nav.append(InlineKeyboardButton(text="⬅️", callback_data=f"adm:log:{key}:{page - 1}"))
+    nav.append(InlineKeyboardButton(text=f"{page + 1}/{max(total_pages, 1)}", callback_data="noop"))
+    if page < total_pages - 1:
+        nav.append(InlineKeyboardButton(text="➡️", callback_data=f"adm:log:{key}:{page + 1}"))
+    rows.append(nav)
+
+    rows.append([InlineKeyboardButton(text="🔙 В меню админки", callback_data="adm:main")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 

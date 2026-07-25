@@ -7,6 +7,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.db.activity_repo import log_event
 from app.db.cards_repo import list_active_cards
 from app.db.cases_repo import get_case, list_active_cases
 from app.db.models import Card, User, UserCard
@@ -46,8 +47,10 @@ async def cmd_start(message: Message, session: AsyncSession, bot: Bot) -> None:
             user.referred_by_id = referrer_id
             bonus = await get_setting_int(session, "referral_bonus_tokens")
             referrer.tokens += bonus
-            await session.commit()
             new_name = f"@{user.username}" if user.username else (user.full_name or str(user.id))
+            referrer_name = f"@{referrer.username}" if referrer.username else (referrer.full_name or str(referrer.id))
+            log_event(session, "referral", referrer.id, f"{referrer_name} пригласил(а) {new_name}, +{bonus} 🪙")
+            await session.commit()
             with contextlib.suppress(Exception):
                 await bot.send_message(referrer_id, f"🎉 По твоей реферальной ссылке присоединился {new_name}! Начислено +{bonus} 🪙")
 

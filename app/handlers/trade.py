@@ -5,6 +5,7 @@ from aiogram.filters import Command
 from aiogram.types import CallbackQuery, Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.db.activity_repo import log_event
 from app.db.models import Trade, User
 from app.db.trades_repo import (
     add_item,
@@ -155,6 +156,9 @@ async def cmd_trade(message: Message, session: AsyncSession, bot: Bot) -> None:
         await message.answer(f"Не получилось отправить предложение @{target_username} — возможно, он ещё не запускал бота или заблокировал его.")
         return
 
+    log_event(session, "trade", initiator.id, f"{initiator_name} предложил(а) трейд @{target_username} (#{trade.id})")
+    await session.commit()
+
     await message.answer(
         f"Предложение трейда отправлено @{target_username}. Жду ответа...",
         reply_markup=trade_pending_kb(trade.id),
@@ -170,6 +174,7 @@ async def cb_trade_accept(callback: CallbackQuery, session: AsyncSession, bot: B
         return
 
     trade.status = "active"
+    log_event(session, "trade", trade.counterparty_id, f"{_display_name(trade.counterparty)} принял(а) трейд с {_display_name(trade.initiator)} (#{trade.id})")
     await session.commit()
 
     with contextlib.suppress(Exception):
@@ -198,6 +203,8 @@ async def cb_trade_decline(callback: CallbackQuery, session: AsyncSession, bot: 
         return
 
     is_initiator = callback.from_user.id == trade.initiator_id
+    action = "отменил(а) предложение" if is_initiator else "отклонил(а)"
+    log_event(session, "trade", callback.from_user.id, f"{_display_name(trade.initiator if is_initiator else trade.counterparty)} {action} трейд (#{trade.id})")
     await cancel_trade(session, trade)
     with contextlib.suppress(Exception):
         await callback.message.edit_text("❌ Трейд отменён." if is_initiator else "❌ Трейд отклонён.")
@@ -354,6 +361,13 @@ async def cb_trade_confirm(callback: CallbackQuery, session: AsyncSession, bot: 
     await session.commit()
 
     if trade.ready_initiator and trade.ready_counterparty:
+        items_i = len(offered_items_by(trade, trade.initiator_id))
+        items_c = len(offered_items_by(trade, trade.counterparty_id))
+        log_event(
+            session, "trade", trade.initiator_id,
+            f"Обмен завершён между {_display_name(trade.initiator)} ({items_i} поз.) и "
+            f"{_display_name(trade.counterparty)} ({items_c} поз.) (#{trade.id})",
+        )
         await execute_trade(session, trade)
         done_text = "✅ Обмен совершён! Загляни в /mycards, чтобы увидеть обновлённую коллекцию."
         with contextlib.suppress(Exception):
@@ -375,6 +389,8 @@ async def cb_trade_cancel(callback: CallbackQuery, session: AsyncSession, bot: B
         await callback.answer("Недоступно.", show_alert=True)
         return
 
+    canceller = trade.initiator if callback.from_user.id == trade.initiator_id else trade.counterparty
+    log_event(session, "trade", callback.from_user.id, f"{_display_name(canceller)} отменил(а) трейд (#{trade.id})")
     await cancel_trade(session, trade)
     text = "❌ Трейд отменён."
     with contextlib.suppress(Exception):
