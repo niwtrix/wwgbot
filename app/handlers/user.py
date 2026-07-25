@@ -11,7 +11,7 @@ from app.db.cards_repo import list_active_cards
 from app.db.cases_repo import get_case, list_active_cases
 from app.db.models import Card, User, UserCard
 from app.db.settings_repo import get_setting, get_setting_int
-from app.keyboards.user import buy_roll_kb, cases_list_kb, mycards_gallery_kb, mycards_kb
+from app.keyboards.user import buy_roll_kb, cases_list_kb, mycards_gallery_kb, mycards_kb, profile_kb
 from app.services.card_sender import send_card
 from app.services.collection import buy_extra_roll, open_case, pull_card
 from app.services.users import get_or_create_user, seconds_until_ready
@@ -166,10 +166,7 @@ async def cb_open_case(callback: CallbackQuery, session: AsyncSession, bot: Bot)
     await send_card(bot, callback.message.chat.id, session, result.card, extra_caption=dup_note)
 
 
-@router.message(Command("profile"))
-async def cmd_profile(message: Message, session: AsyncSession) -> None:
-    user = await get_or_create_user(session, message.from_user)
-
+async def _profile_text(session: AsyncSession, user: User, display_name: str) -> str:
     total_cards = len(await list_active_cards(session))
 
     result = await session.execute(
@@ -186,14 +183,31 @@ async def cmd_profile(message: Message, session: AsyncSession) -> None:
     remaining = seconds_until_ready(user, cooldown_minutes)
     cooldown_line = "✅ можно тянуть карту прямо сейчас" if remaining == 0 else f"⏳ через {fmt_seconds(remaining)}"
 
-    await message.answer(
-        f"👤 <b>Профиль {message.from_user.full_name}</b>\n\n"
+    return (
+        f"👤 <b>Профиль {display_name}</b>\n\n"
         f"💰 Токены: {user.tokens}\n"
         f"🎴 Собрано уникальных: {unique_owned}/{total_cards}\n"
         f"📦 Всего карточек получено: {total_pulls}\n"
-        f"🕒 Следующая карта: {cooldown_line}",
-        parse_mode="HTML",
+        f"🕒 Следующая карта: {cooldown_line}"
     )
+
+
+@router.message(Command("profile"))
+async def cmd_profile(message: Message, session: AsyncSession) -> None:
+    user = await get_or_create_user(session, message.from_user)
+    text = await _profile_text(session, user, message.from_user.full_name)
+    await message.answer(text, parse_mode="HTML", reply_markup=profile_kb(user.hide_from_top))
+
+
+@router.callback_query(F.data == "toggletop")
+async def cb_toggle_top(callback: CallbackQuery, session: AsyncSession) -> None:
+    user = await get_or_create_user(session, callback.from_user)
+    user.hide_from_top = not user.hide_from_top
+    await session.commit()
+    text = await _profile_text(session, user, callback.from_user.full_name)
+    with contextlib.suppress(Exception):
+        await callback.message.edit_text(text, parse_mode="HTML", reply_markup=profile_kb(user.hide_from_top))
+    await callback.answer("Теперь ты скрыт(а) из /top 🙈" if user.hide_from_top else "Теперь ты снова виден(на) в /top 👁")
 
 
 async def _owned_cards(session: AsyncSession, user_id: int) -> list[UserCard]:
@@ -285,7 +299,7 @@ async def cb_noop(callback: CallbackQuery) -> None:
 @router.message(Command("top"))
 async def cmd_top(message: Message, session: AsyncSession) -> None:
     result = await session.execute(
-        select(User).order_by(User.tokens.desc()).limit(10)
+        select(User).where(User.hide_from_top.is_(False)).order_by(User.tokens.desc()).limit(10)
     )
     top_users = list(result.scalars().all())
 

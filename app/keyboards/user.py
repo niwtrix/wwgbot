@@ -36,6 +36,11 @@ def card_links_kb(card: Card) -> InlineKeyboardMarkup | None:
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
+def profile_kb(hide_from_top: bool) -> InlineKeyboardMarkup:
+    text = "👁 Показывать себя в /top" if hide_from_top else "🙈 Скрыть себя из /top"
+    return InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text=text, callback_data="toggletop")]])
+
+
 def mycards_kb(page: int, total_pages: int) -> InlineKeyboardMarkup:
     rows = [[InlineKeyboardButton(text="🖼 Смотреть как карточки", callback_data="mygallery:0")]]
 

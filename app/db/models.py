@@ -57,6 +57,7 @@ class User(Base):
     last_pull_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     joined_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     referred_by_id: Mapped[int | None] = mapped_column(BigInteger, ForeignKey("users.id"), nullable=True)
+    hide_from_top: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
 class UserCard(Base):
