@@ -10,7 +10,7 @@ from sqlalchemy.orm import selectinload
 from app.db.cards_repo import list_active_cards
 from app.db.cases_repo import get_case, list_active_cases
 from app.db.models import Card, User, UserCard
-from app.db.settings_repo import get_setting_int
+from app.db.settings_repo import get_setting, get_setting_int
 from app.keyboards.user import buy_roll_kb, cases_list_kb, mycards_kb
 from app.services.card_sender import send_card
 from app.services.collection import buy_extra_roll, open_case, pull_card
@@ -34,31 +34,14 @@ def fmt_seconds(total: int) -> str:
 @router.message(CommandStart())
 async def cmd_start(message: Message, session: AsyncSession) -> None:
     await get_or_create_user(session, message.from_user)
-    await message.answer(
-        "🎴 <b>WWGang Cards</b>\n\n"
-        "Собирай карточки участников WWGang!\n\n"
-        "/card — получить случайную карточку (по кулдауну, можно докупить доп. ролл за токены)\n"
-        "/cases — открыть кейс за токены\n"
-        "/profile — твой профиль и коллекция\n"
-        "/mycards — список собранных карточек\n"
-        "/top — таблица лидеров по токенам\n"
-        "/help — помощь",
-        parse_mode="HTML",
-    )
+    text = await get_setting(session, "start_text")
+    await message.answer(text, parse_mode="HTML")
 
 
 @router.message(Command("help"))
-async def cmd_help(message: Message) -> None:
-    await message.answer(
-        "🎴 <b>WWGang Cards — помощь</b>\n\n"
-        "/card — получить случайную карточку участника WWGang (есть кулдаун между попытками)\n"
-        "/profile — твои токены, прогресс коллекции и статус кулдауна\n"
-        "/mycards — список всех твоих карточек с редкостью и количеством копий\n"
-        "/top — топ игроков по токенам\n\n"
-        "Токены начисляются за каждую карточку (больше — за редкие) и за дубликаты. "
-        "Работает и в группе, и в личных сообщениях.",
-        parse_mode="HTML",
-    )
+async def cmd_help(message: Message, session: AsyncSession) -> None:
+    text = await get_setting(session, "help_text")
+    await message.answer(text, parse_mode="HTML")
 
 
 @router.message(Command("card", "wwg", "pull"))

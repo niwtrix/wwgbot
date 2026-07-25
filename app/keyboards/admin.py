@@ -11,6 +11,9 @@ def admin_main_menu() -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text="🏷 Редкости", callback_data="adm:rarities")],
         [InlineKeyboardButton(text="⚙️ Настройки", callback_data="adm:settings")],
         [InlineKeyboardButton(text="📊 Статистика", callback_data="adm:stats")],
+        [InlineKeyboardButton(text="👥 Пользователи", callback_data="adm:users:0")],
+        [InlineKeyboardButton(text="🪙 Начислить токены", callback_data="adm:granttokens")],
+        [InlineKeyboardButton(text="📢 Рассылка", callback_data="adm:broadcast")],
         [InlineKeyboardButton(text="🆔 Получить ID эмодзи", callback_data="adm:getemoji")],
         [InlineKeyboardButton(text="❓ Справка для админов", callback_data="adm:help")],
     ]
@@ -172,6 +175,29 @@ def case_odds_kb(case: Case, rarities: list[Rarity]) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
+def users_list_kb(page: int, total_pages: int) -> InlineKeyboardMarkup:
+    nav = []
+    if page > 0:
+        nav.append(InlineKeyboardButton(text="⬅️", callback_data=f"adm:users:{page - 1}"))
+    nav.append(InlineKeyboardButton(text=f"{page + 1}/{max(total_pages, 1)}", callback_data="noop"))
+    if page < total_pages - 1:
+        nav.append(InlineKeyboardButton(text="➡️", callback_data=f"adm:users:{page + 1}"))
+    rows = [nav] if nav else []
+    rows.append([InlineKeyboardButton(text="🔙 В меню админки", callback_data="adm:main")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def confirm_broadcast_kb() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text="✅ Отправить всем", callback_data="adm:broadcastsend"),
+                InlineKeyboardButton(text="❌ Отмена", callback_data="adm:broadcastcancel"),
+            ]
+        ]
+    )
+
+
 def settings_menu_kb(health_report_enabled: bool) -> InlineKeyboardMarkup:
     toggle_text = "🔕 Выключить отчёты о статусе" if health_report_enabled else "🔔 Включить отчёты о статусе"
     rows = [
@@ -183,6 +209,8 @@ def settings_menu_kb(health_report_enabled: bool) -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text="🛡 Защита от дублей: мин. доля шанса", callback_data="adm:sfield:pity_min_weight_fraction")],
         [InlineKeyboardButton(text=toggle_text, callback_data="adm:togglehealthreport")],
         [InlineKeyboardButton(text="⏱ Интервал отчётов (минуты)", callback_data="adm:sfield:health_report_interval_minutes")],
+        [InlineKeyboardButton(text="✏️ Текст /start", callback_data="adm:sfield:start_text")],
+        [InlineKeyboardButton(text="✏️ Текст /help", callback_data="adm:sfield:help_text")],
         [InlineKeyboardButton(text="🎁 Кейсы", callback_data="adm:cases")],
         [InlineKeyboardButton(text="🔙 В меню админки", callback_data="adm:main")],
     ]

@@ -24,6 +24,7 @@ ADMIN_COMMANDS = USER_COMMANDS + [
     BotCommand(command="adminhelp", description="Справка для админов"),
     BotCommand(command="testcard", description="Показать тестовую карточку"),
     BotCommand(command="getemojiid", description="Получить ID премиум-эмодзи"),
+    BotCommand(command="ping", description="Пинг и среднее время ответа"),
     BotCommand(command="cancel", description="Отменить текущий ввод"),
 ]
 

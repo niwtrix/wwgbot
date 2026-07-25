@@ -75,7 +75,7 @@ class Setting(Base):
     __tablename__ = "settings"
 
     key: Mapped[str] = mapped_column(String(64), primary_key=True)
-    value: Mapped[str] = mapped_column(String(256))
+    value: Mapped[str] = mapped_column(Text)
 
 
 class Case(Base):

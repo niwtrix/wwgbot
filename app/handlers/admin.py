@@ -1,3 +1,4 @@
+import asyncio
 import contextlib
 import random
 import re
@@ -22,6 +23,7 @@ from app.keyboards.admin import (
     case_edit_menu_kb,
     case_odds_kb,
     cases_list_kb,
+    confirm_broadcast_kb,
     confirm_delete_card_kb,
     confirm_delete_case_kb,
     confirm_delete_rarity_kb,
@@ -29,15 +31,19 @@ from app.keyboards.admin import (
     rarity_edit_menu_kb,
     rarity_picker_kb,
     settings_menu_kb,
+    users_list_kb,
 )
 from app.services.card_sender import send_card
+from app.services.health_report import build_status_report
 from app.states.admin import (
+    BroadcastMessage,
     EditCardField,
     EditCaseField,
     EditCaseOdds,
     EditRarityField,
     EditSetting,
     EmojiCapture,
+    GrantTokens,
     NewCard,
     NewCase,
     NewRarity,
@@ -67,7 +73,11 @@ RARITY_FIELD_LABELS = {
 SETTING_LABELS = {
     "cooldown_minutes": "кулдаун между карточками, в минутах",
     "duplicate_bonus": "бонус токенов за дубликат карточки",
+    "start_text": "текст команды /start",
+    "help_text": "текст команды /help",
 }
+
+TEXT_SETTING_KEYS = {"start_text", "help_text"}
 
 ADMIN_HELP_TEXT = (
     "🆘 <b>Справка для админов</b>\n\n"
@@ -89,7 +99,8 @@ ADMIN_HELP_TEXT = (
     "<b>Настройки</b>\n"
     "— кулдаун между картами, бонус токенов за дубликат, цена доп. ролла за токены, параметры защиты "
     "от дублей (мин. кол-во пуллов до повтора карты, сколько пуллов идёт восстановление шанса, "
-    "минимальная доля шанса сразу после порога), вкл/выкл и интервал автоотчётов о статусе бота в личку.\n\n"
+    "минимальная доля шанса сразу после порога), вкл/выкл и интервал автоотчётов о статусе бота в личку, "
+    "тексты команд /start и /help (можно с HTML-разметкой).\n\n"
     "<b>ID эмодзи</b>\n"
     "— чтобы использовать свой премиум-эмодзи как иконку редкости, пришли его текстом в чат "
     "(вставь эмодзи из своей Premium-панели, не обычный смайл с клавиатуры) — бот пришлёт в ответ "
@@ -97,6 +108,11 @@ ADMIN_HELP_TEXT = (
     "⚠️ Если прислать обычный unicode-эмодзи (не премиум), ID получить не получится — Telegram присваивает "
     "custom_emoji_id только настоящим кастомным эмодзи.\n\n"
     "<b>Статистика</b> — сводка по игрокам, карточкам и токенам.\n\n"
+    "<b>Пользователи</b> — список всех, кто запускал бота, с токенами.\n\n"
+    "<b>Начислить токены</b> — начислить (или списать, если ввести число со знаком минус) "
+    "токены игроку по его ID или @username.\n\n"
+    "<b>Рассылка</b> — пришли любое сообщение (текст, фото и т.д.), подтверди — уйдёт всем пользователям бота.\n\n"
+    "<b>/ping</b> — пинг Telegram и среднее время ответа бота прямо сейчас.\n\n"
     "Во время любого шага редактирования можно прислать /cancel, чтобы отменить ввод."
 )
 
@@ -140,6 +156,11 @@ async def cmd_cancel(message: Message, state: FSMContext) -> None:
         return
     await state.clear()
     await message.answer("Отменено.", reply_markup=admin_main_menu())
+
+
+@router.message(Command("ping"))
+async def cmd_ping(message: Message, bot: Bot) -> None:
+    await message.answer(await build_status_report(bot), parse_mode="HTML")
 
 
 @router.message(Command("testcard"))
@@ -727,7 +748,12 @@ async def cb_setting_field(callback: CallbackQuery, state: FSMContext) -> None:
     await state.set_state(EditSetting.waiting_value)
     await state.update_data(key=key)
     label = SETTING_LABELS.get(key, key)
-    hint = "число от 0 до 1, например 0.1" if key == "pity_min_weight_fraction" else "целое число"
+    if key == "pity_min_weight_fraction":
+        hint = "число от 0 до 1, например 0.1"
+    elif key in TEXT_SETTING_KEYS:
+        hint = "текст сообщения, можно с HTML-разметкой (жирный, ссылки и т.д.)"
+    else:
+        hint = "целое число"
     await callback.message.answer(f"Пришли новое значение для «{label}» ({hint}), или /cancel:")
     await callback.answer()
 
@@ -736,6 +762,14 @@ async def cb_setting_field(callback: CallbackQuery, state: FSMContext) -> None:
 async def on_setting_value(message: Message, state: FSMContext, session: AsyncSession) -> None:
     data = await state.get_data()
     key = data["key"]
+
+    if key in TEXT_SETTING_KEYS:
+        raw = message.html_text or (message.text or "").strip()
+        await set_setting(session, key, raw)
+        await state.clear()
+        await message.answer("✅ Текст обновлён.", reply_markup=back_to_main_kb())
+        return
+
     raw = message.text.strip()
     if key == "pity_min_weight_fraction":
         try:
@@ -960,6 +994,156 @@ async def on_case_odds_value(message: Message, state: FSMContext, session: Async
     await message.answer(
         f"✅ Обновлено содержимое кейса «{case.name}».",
         reply_markup=back_to_main_kb(),
+    )
+
+
+# ---------- Users list ----------
+
+USERS_PAGE_SIZE = 15
+
+
+async def _users_page_text(session: AsyncSession, page: int) -> tuple[str, int]:
+    result = await session.execute(select(User).order_by(User.joined_at))
+    users = list(result.scalars().all())
+    if not users:
+        return "Пока нет ни одного пользователя.", 1
+
+    total_pages = (len(users) + USERS_PAGE_SIZE - 1) // USERS_PAGE_SIZE
+    page = max(0, min(page, total_pages - 1))
+    chunk = users[page * USERS_PAGE_SIZE : (page + 1) * USERS_PAGE_SIZE]
+
+    lines = [f"👥 <b>Пользователи</b> ({len(users)} всего)\n"]
+    for u in chunk:
+        name = f"@{u.username}" if u.username else (u.full_name or "без имени")
+        lines.append(f"<code>{u.id}</code> — {name} — {u.tokens} 🪙")
+    return "\n".join(lines), total_pages
+
+
+@router.callback_query(F.data.startswith("adm:users:"))
+async def cb_users_list(callback: CallbackQuery, session: AsyncSession) -> None:
+    page = int(callback.data.split(":")[2])
+    text, total_pages = await _users_page_text(session, page)
+    await callback.message.edit_text(text, parse_mode="HTML", reply_markup=users_list_kb(page, total_pages))
+    await callback.answer()
+
+
+# ---------- Broadcast ----------
+
+
+@router.callback_query(F.data == "adm:broadcast")
+async def cb_broadcast_start(callback: CallbackQuery, state: FSMContext) -> None:
+    await state.set_state(BroadcastMessage.waiting_message)
+    await callback.message.answer(
+        "Пришли сообщение для рассылки всем пользователям бота (текст, фото, видео — что угодно), или /cancel:"
+    )
+    await callback.answer()
+
+
+@router.message(BroadcastMessage.waiting_message)
+async def on_broadcast_message(message: Message, state: FSMContext) -> None:
+    await state.update_data(chat_id=message.chat.id, message_id=message.message_id)
+    await state.set_state(BroadcastMessage.waiting_confirm)
+    await message.reply(
+        "⬆️ Это сообщение уйдёт всем пользователям бота. Подтвердить?",
+        reply_markup=confirm_broadcast_kb(),
+    )
+
+
+@router.callback_query(F.data == "adm:broadcastcancel")
+async def cb_broadcast_cancel(callback: CallbackQuery, state: FSMContext) -> None:
+    await state.clear()
+    await callback.message.edit_text("Рассылка отменена.")
+    await callback.answer()
+
+
+@router.callback_query(F.data == "adm:broadcastsend")
+async def cb_broadcast_send(callback: CallbackQuery, state: FSMContext, session: AsyncSession, bot: Bot) -> None:
+    data = await state.get_data()
+    await state.clear()
+    await callback.message.edit_text("⏳ Рассылаю...")
+    await callback.answer()
+
+    result = await session.execute(select(User.id))
+    user_ids = [row[0] for row in result.all()]
+
+    sent = 0
+    failed = 0
+    for user_id in user_ids:
+        try:
+            await callback.bot.copy_message(
+                chat_id=user_id,
+                from_chat_id=data["chat_id"],
+                message_id=data["message_id"],
+            )
+            sent += 1
+        except Exception:
+            failed += 1
+        await asyncio.sleep(0.05)
+
+    await callback.message.answer(
+        f"✅ Рассылка завершена.\nДоставлено: {sent}\nНе удалось (бот заблокирован и т.п.): {failed}",
+        reply_markup=admin_main_menu(),
+    )
+
+
+# ---------- Grant tokens ----------
+
+
+@router.callback_query(F.data == "adm:granttokens")
+async def cb_granttokens_start(callback: CallbackQuery, state: FSMContext) -> None:
+    await state.set_state(GrantTokens.waiting_user)
+    await callback.message.answer(
+        "Кому начислить токены? Пришли Telegram ID пользователя или его @username "
+        "(пользователь должен хотя бы раз запускать бота), или /cancel:"
+    )
+    await callback.answer()
+
+
+@router.message(GrantTokens.waiting_user)
+async def on_granttokens_user(message: Message, state: FSMContext, session: AsyncSession) -> None:
+    raw = (message.text or "").strip().lstrip("@")
+    user = None
+    if raw.isdigit():
+        user = await session.get(User, int(raw))
+    else:
+        result = await session.execute(select(User).where(User.username == raw))
+        user = result.scalar_one_or_none()
+
+    if user is None:
+        await message.answer("Не нашёл такого пользователя. Проверь ID/username и попробуй ещё раз, или /cancel:")
+        return
+
+    label = f"@{user.username}" if user.username else (user.full_name or str(user.id))
+    await state.update_data(target_id=user.id, target_label=label)
+    await state.set_state(GrantTokens.waiting_amount)
+    await message.answer(
+        f"Сколько токенов начислить {label} (сейчас {user.tokens} 🪙)? "
+        "Можно отрицательное число, чтобы списать:"
+    )
+
+
+@router.message(GrantTokens.waiting_amount)
+async def on_granttokens_amount(message: Message, state: FSMContext, session: AsyncSession) -> None:
+    raw = (message.text or "").strip()
+    try:
+        amount = int(raw)
+    except ValueError:
+        await message.answer("Нужно целое число (можно со знаком минус). Попробуй ещё раз:")
+        return
+
+    data = await state.get_data()
+    user = await session.get(User, data["target_id"])
+    await state.clear()
+    if user is None:
+        await message.answer("Пользователь больше не найден.", reply_markup=admin_main_menu())
+        return
+
+    user.tokens = max(0, user.tokens + amount)
+    await session.commit()
+    sign = "+" if amount >= 0 else ""
+    await message.answer(
+        f"✅ {data['target_label']}: {sign}{amount} 🪙. Теперь у него {user.tokens} 🪙.",
+        reply_markup=admin_main_menu(),
     )
 
 

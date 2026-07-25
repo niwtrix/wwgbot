@@ -14,7 +14,7 @@ from app.services.monitoring import average_duration_ms, sample_count
 CHECK_INTERVAL_SECONDS = 30  # how often we re-check settings while idle
 
 
-async def _gather_report(bot: Bot) -> str:
+async def build_status_report(bot: Bot) -> str:
     ping_start = time.monotonic()
     try:
         await bot.get_me()
@@ -58,7 +58,7 @@ async def health_report_loop(bot: Bot) -> None:
                 continue
 
             last_sent = time.monotonic()
-            text = await _gather_report(bot)
+            text = await build_status_report(bot)
             for owner_id in OWNER_IDS:
                 try:
                     await bot.send_message(owner_id, text, parse_mode="HTML")

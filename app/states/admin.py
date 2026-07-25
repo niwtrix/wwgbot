@@ -46,3 +46,13 @@ class EditCaseField(StatesGroup):
 
 class EditCaseOdds(StatesGroup):
     waiting_value = State()  # data: case_id, rarity_id
+
+
+class BroadcastMessage(StatesGroup):
+    waiting_message = State()
+    waiting_confirm = State()  # data: chat_id, message_id
+
+
+class GrantTokens(StatesGroup):
+    waiting_user = State()
+    waiting_amount = State()  # data: target_id, target_label
