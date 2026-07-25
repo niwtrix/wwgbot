@@ -78,6 +78,9 @@ SETTING_LABELS = {
     "start_text": "текст команды /start",
     "help_text": "текст команды /help",
     "referral_bonus_tokens": "бонус токенов за приглашённого друга (реферала)",
+    "daily_bonus_base_tokens": "базовый ежедневный бонус (токены)",
+    "daily_bonus_streak_step": "прирост бонуса за каждый день серии подряд",
+    "daily_bonus_max_tokens": "максимум ежедневного бонуса (токены)",
 }
 
 TEXT_SETTING_KEYS = {"start_text", "help_text"}
@@ -715,6 +718,9 @@ async def _settings_text(session: AsyncSession) -> str:
     hr_enabled = await get_setting(session, "health_report_enabled")
     hr_interval = await get_setting(session, "health_report_interval_minutes")
     referral_bonus = await get_setting(session, "referral_bonus_tokens")
+    daily_base = await get_setting(session, "daily_bonus_base_tokens")
+    daily_step = await get_setting(session, "daily_bonus_streak_step")
+    daily_max = await get_setting(session, "daily_bonus_max_tokens")
     return (
         "⚙️ <b>Настройки</b>\n\n"
         f"Кулдаун: {cooldown} мин\n"
@@ -723,6 +729,7 @@ async def _settings_text(session: AsyncSession) -> str:
         f"Защита от дублей: мин. {pity_floor} пуллов, восстановление за {pity_ramp} пуллов, "
         f"мин. доля шанса {pity_min}\n"
         f"Бонус токенов за реферала: {referral_bonus} 🪙\n"
+        f"Ежедневный бонус: {daily_base} 🪙 база, +{daily_step} 🪙 за день серии, максимум {daily_max} 🪙\n"
         f"Отчёты о статусе: {'включены' if hr_enabled == '1' else 'выключены'}, каждые {hr_interval} мин"
     )
 

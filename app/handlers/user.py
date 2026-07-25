@@ -1,4 +1,5 @@
 import contextlib
+from datetime import datetime, timedelta, timezone
 
 from aiogram import Bot, F, Router
 from aiogram.filters import Command, CommandStart
@@ -73,6 +74,46 @@ async def cmd_invite(message: Message, session: AsyncSession, bot: Bot) -> None:
         f"За каждого друга, который запустит бота по этой ссылке впервые, тебе начислится {bonus} 🪙.\n"
         f"Приглашено уже: {count} чел.",
         parse_mode="HTML",
+    )
+
+
+@router.message(Command("bonus"))
+async def cmd_bonus(message: Message, session: AsyncSession) -> None:
+    user = await get_or_create_user(session, message.from_user)
+    now = datetime.now(timezone.utc)
+    today = now.date()
+
+    last_bonus_at = user.last_bonus_at
+    if last_bonus_at and last_bonus_at.tzinfo is None:
+        last_bonus_at = last_bonus_at.replace(tzinfo=timezone.utc)
+    last_date = last_bonus_at.date() if last_bonus_at else None
+
+    if last_date == today:
+        tomorrow = datetime(today.year, today.month, today.day, tzinfo=timezone.utc) + timedelta(days=1)
+        remaining = int((tomorrow - now).total_seconds())
+        await message.answer(
+            f"🎁 Бонус на сегодня уже забран.\nПриходи через {fmt_seconds(remaining)}.\n"
+            f"Текущая серия: {user.daily_streak} 🔥"
+        )
+        return
+
+    user.daily_streak = user.daily_streak + 1 if last_date == today - timedelta(days=1) else 1
+
+    base = await get_setting_int(session, "daily_bonus_base_tokens")
+    step = await get_setting_int(session, "daily_bonus_streak_step")
+    cap = await get_setting_int(session, "daily_bonus_max_tokens")
+    reward = min(base + (user.daily_streak - 1) * step, cap)
+
+    user.tokens += reward
+    user.last_bonus_at = now
+    name = f"@{user.username}" if user.username else (user.full_name or str(user.id))
+    log_event(session, "daily_bonus", user.id, f"{name} получил(а) ежедневный бонус: +{reward} 🪙 (серия {user.daily_streak})")
+    await session.commit()
+
+    await message.answer(
+        f"🎁 Ежедневный бонус: +{reward} 🪙\n"
+        f"Серия захода: {user.daily_streak} 🔥\n"
+        f"Чем дольше подряд заходишь — тем больше бонус (до {cap} 🪙). Пропустишь день — серия сбросится."
     )
 
 

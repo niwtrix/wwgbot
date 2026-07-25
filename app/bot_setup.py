@@ -12,6 +12,7 @@ from app.middlewares.timing import TimingMiddleware
 USER_COMMANDS = [
     BotCommand(command="start", description="Начать"),
     BotCommand(command="card", description="Получить карточку"),
+    BotCommand(command="bonus", description="Ежедневный бонус"),
     BotCommand(command="cases", description="Кейсы за токены"),
     BotCommand(command="profile", description="Мой профиль"),
     BotCommand(command="mycards", description="Мои карточки"),
