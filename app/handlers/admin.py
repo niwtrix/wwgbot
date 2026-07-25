@@ -75,6 +75,7 @@ SETTING_LABELS = {
     "duplicate_bonus": "бонус токенов за дубликат карточки",
     "start_text": "текст команды /start",
     "help_text": "текст команды /help",
+    "referral_bonus_tokens": "бонус токенов за приглашённого друга (реферала)",
 }
 
 TEXT_SETTING_KEYS = {"start_text", "help_text"}
@@ -711,6 +712,7 @@ async def _settings_text(session: AsyncSession) -> str:
     pity_min = await get_setting(session, "pity_min_weight_fraction")
     hr_enabled = await get_setting(session, "health_report_enabled")
     hr_interval = await get_setting(session, "health_report_interval_minutes")
+    referral_bonus = await get_setting(session, "referral_bonus_tokens")
     return (
         "⚙️ <b>Настройки</b>\n\n"
         f"Кулдаун: {cooldown} мин\n"
@@ -718,6 +720,7 @@ async def _settings_text(session: AsyncSession) -> str:
         f"Цена доп. ролла: {extra_roll_price} 🪙\n"
         f"Защита от дублей: мин. {pity_floor} пуллов, восстановление за {pity_ramp} пуллов, "
         f"мин. доля шанса {pity_min}\n"
+        f"Бонус токенов за реферала: {referral_bonus} 🪙\n"
         f"Отчёты о статусе: {'включены' if hr_enabled == '1' else 'выключены'}, каждые {hr_interval} мин"
     )
 

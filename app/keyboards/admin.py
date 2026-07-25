@@ -211,6 +211,7 @@ def settings_menu_kb(health_report_enabled: bool) -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text="⏱ Интервал отчётов (минуты)", callback_data="adm:sfield:health_report_interval_minutes")],
         [InlineKeyboardButton(text="✏️ Текст /start", callback_data="adm:sfield:start_text")],
         [InlineKeyboardButton(text="✏️ Текст /help", callback_data="adm:sfield:help_text")],
+        [InlineKeyboardButton(text="🔗 Бонус за реферала", callback_data="adm:sfield:referral_bonus_tokens")],
         [InlineKeyboardButton(text="🎁 Кейсы", callback_data="adm:cases")],
         [InlineKeyboardButton(text="🔙 В меню админки", callback_data="adm:main")],
     ]

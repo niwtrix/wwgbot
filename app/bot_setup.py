@@ -16,6 +16,7 @@ USER_COMMANDS = [
     BotCommand(command="profile", description="Мой профиль"),
     BotCommand(command="mycards", description="Мои карточки"),
     BotCommand(command="trade", description="Предложить обмен карточками"),
+    BotCommand(command="invite", description="Реферальная ссылка"),
     BotCommand(command="top", description="Топ игроков"),
     BotCommand(command="help", description="Помощь"),
 ]

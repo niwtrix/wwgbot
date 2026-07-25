@@ -32,10 +32,45 @@ def fmt_seconds(total: int) -> str:
 
 
 @router.message(CommandStart())
-async def cmd_start(message: Message, session: AsyncSession) -> None:
-    await get_or_create_user(session, message.from_user)
+async def cmd_start(message: Message, session: AsyncSession, bot: Bot) -> None:
+    args = (message.text or "").split(maxsplit=1)
+    payload = args[1].strip() if len(args) > 1 else ""
+
+    is_new = await session.get(User, message.from_user.id) is None
+    user = await get_or_create_user(session, message.from_user)
+
+    if is_new and payload.startswith("ref") and payload[3:].isdigit():
+        referrer_id = int(payload[3:])
+        referrer = await session.get(User, referrer_id) if referrer_id != user.id else None
+        if referrer is not None:
+            user.referred_by_id = referrer_id
+            bonus = await get_setting_int(session, "referral_bonus_tokens")
+            referrer.tokens += bonus
+            await session.commit()
+            new_name = f"@{user.username}" if user.username else (user.full_name or str(user.id))
+            with contextlib.suppress(Exception):
+                await bot.send_message(referrer_id, f"🎉 По твоей реферальной ссылке присоединился {new_name}! Начислено +{bonus} 🪙")
+
     text = await get_setting(session, "start_text")
     await message.answer(text, parse_mode="HTML")
+
+
+@router.message(Command("invite"))
+async def cmd_invite(message: Message, session: AsyncSession, bot: Bot) -> None:
+    user = await get_or_create_user(session, message.from_user)
+    bot_info = await bot.get_me()
+    link = f"https://t.me/{bot_info.username}?start=ref{user.id}"
+
+    result = await session.execute(select(func.count()).select_from(User).where(User.referred_by_id == user.id))
+    count = result.scalar_one()
+    bonus = await get_setting_int(session, "referral_bonus_tokens")
+
+    await message.answer(
+        f"🔗 <b>Твоя реферальная ссылка</b>\n\n{link}\n\n"
+        f"За каждого друга, который запустит бота по этой ссылке впервые, тебе начислится {bonus} 🪙.\n"
+        f"Приглашено уже: {count} чел.",
+        parse_mode="HTML",
+    )
 
 
 @router.message(Command("help"))
