@@ -4,6 +4,7 @@ import logging
 from aiogram import Bot
 
 from app.bot_setup import create_bot_and_dispatcher, set_bot_commands
+from app.config import PROXY_URL
 from app.db.engine import init_db
 from app.services.health_report import health_report_loop
 
@@ -35,7 +36,8 @@ async def main() -> None:
     except Exception:
         logging.warning("Could not delete webhook on startup", exc_info=True)
 
-    asyncio.create_task(keep_warm(bot))
+    if PROXY_URL:
+        asyncio.create_task(keep_warm(bot))
     asyncio.create_task(health_report_loop(bot))
 
     await dp.start_polling(bot)

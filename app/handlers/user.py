@@ -1,5 +1,6 @@
 import contextlib
 from datetime import datetime, timedelta, timezone
+from html import escape
 
 from aiogram import Bot, F, Router
 from aiogram.filters import Command, CommandStart
@@ -15,6 +16,7 @@ from app.db.models import Card, User, UserCard
 from app.db.settings_repo import get_setting, get_setting_int
 from app.keyboards.user import buy_roll_kb, cases_list_kb, mycards_gallery_kb, mycards_kb, profile_kb, top_kb
 from app.services.card_sender import send_card
+from app.services.format import display_name
 from app.services.collection import buy_extra_roll, open_case, pull_card
 from app.services.users import get_or_create_user, seconds_until_ready
 
@@ -48,8 +50,8 @@ async def cmd_start(message: Message, session: AsyncSession, bot: Bot) -> None:
             user.referred_by_id = referrer_id
             bonus = await get_setting_int(session, "referral_bonus_tokens")
             referrer.tokens += bonus
-            new_name = f"@{user.username}" if user.username else (user.full_name or str(user.id))
-            referrer_name = f"@{referrer.username}" if referrer.username else (referrer.full_name or str(referrer.id))
+            new_name = display_name(user)
+            referrer_name = display_name(referrer)
             log_event(session, "referral", referrer.id, f"{referrer_name} пригласил(а) {new_name}, +{bonus} 🪙")
             await session.commit()
             with contextlib.suppress(Exception):
@@ -106,8 +108,7 @@ async def cmd_bonus(message: Message, session: AsyncSession) -> None:
 
     user.tokens += reward
     user.last_bonus_at = now
-    name = f"@{user.username}" if user.username else (user.full_name or str(user.id))
-    log_event(session, "daily_bonus", user.id, f"{name} получил(а) ежедневный бонус: +{reward} 🪙 (серия {user.daily_streak})")
+    log_event(session, "daily_bonus", user.id, f"{display_name(user)} получил(а) ежедневный бонус: +{reward} 🪙 (серия {user.daily_streak})")
     await session.commit()
 
     await message.answer(
@@ -180,10 +181,10 @@ async def cmd_cases(message: Message, session: AsyncSession) -> None:
 
     lines = ["🎁 <b>Доступные кейсы</b>\n", f"💰 Твои токены: {user.tokens}\n"]
     for c in cases:
-        rarities = ", ".join(o.rarity.name for o in c.odds if o.weight > 0)
-        lines.append(f"<b>{c.name}</b> — {c.price_tokens} 🪙")
+        rarities = ", ".join(escape(o.rarity.name) for o in c.odds if o.weight > 0)
+        lines.append(f"<b>{escape(c.name)}</b> — {c.price_tokens} 🪙")
         if c.description:
-            lines.append(c.description)
+            lines.append(escape(c.description))
         if rarities:
             lines.append(f"Содержимое: {rarities}")
         lines.append("")
@@ -206,11 +207,11 @@ async def cb_open_case(callback: CallbackQuery, session: AsyncSession, bot: Bot)
         return
 
     await callback.answer(f"Кейс открыт за {case.price_tokens} 🪙")
-    dup_note = _pull_result_caption(result) + f"\n(из кейса «{case.name}»)"
+    dup_note = _pull_result_caption(result) + f"\n(из кейса «{escape(case.name)}»)"
     await send_card(bot, callback.message.chat.id, session, result.card, extra_caption=dup_note)
 
 
-async def _profile_text(session: AsyncSession, user: User, display_name: str) -> str:
+async def _profile_text(session: AsyncSession, user: User, name: str) -> str:
     total_cards = len(await list_active_cards(session))
 
     result = await session.execute(
@@ -228,7 +229,7 @@ async def _profile_text(session: AsyncSession, user: User, display_name: str) ->
     cooldown_line = "✅ можно тянуть карту прямо сейчас" if remaining == 0 else f"⏳ через {fmt_seconds(remaining)}"
 
     return (
-        f"👤 <b>Профиль {display_name}</b>\n\n"
+        f"👤 <b>Профиль {name}</b>\n\n"
         f"💰 Токены: {user.tokens}\n"
         f"🎴 Собрано уникальных: {unique_owned}/{total_cards}\n"
         f"📦 Всего карточек получено: {total_pulls}\n"
@@ -239,7 +240,7 @@ async def _profile_text(session: AsyncSession, user: User, display_name: str) ->
 @router.message(Command("profile"))
 async def cmd_profile(message: Message, session: AsyncSession) -> None:
     user = await get_or_create_user(session, message.from_user)
-    text = await _profile_text(session, user, message.from_user.full_name)
+    text = await _profile_text(session, user, display_name(user))
     await message.answer(text, parse_mode="HTML", reply_markup=profile_kb(user.hide_from_top))
 
 
@@ -248,7 +249,7 @@ async def cb_toggle_top(callback: CallbackQuery, session: AsyncSession) -> None:
     user = await get_or_create_user(session, callback.from_user)
     user.hide_from_top = not user.hide_from_top
     await session.commit()
-    text = await _profile_text(session, user, callback.from_user.full_name)
+    text = await _profile_text(session, user, display_name(user))
     with contextlib.suppress(Exception):
         await callback.message.edit_text(text, parse_mode="HTML", reply_markup=profile_kb(user.hide_from_top))
     await callback.answer("Теперь ты скрыт(а) из /top 🙈" if user.hide_from_top else "Теперь ты снова виден(на) в /top 👁")
@@ -278,7 +279,7 @@ def _mycards_text_for_page(owned: list[UserCard], page: int) -> tuple[str, int]:
         card = uc.card
         emoji = card.rarity.emoji_fallback
         copies = f" ×{uc.count}" if uc.count > 1 else ""
-        lines.append(f"{emoji} {card.name} — {card.rarity.name}{copies}")
+        lines.append(f"{emoji} {escape(card.name)} — {escape(card.rarity.name)}{copies}")
 
     return "\n".join(lines), total_pages
 
@@ -358,7 +359,7 @@ async def _top_text(session: AsyncSession, mode: str) -> str:
         lines = ["🏆 <b>Топ по карточкам</b>\n"]
         for i, (u, total) in enumerate(rows):
             prefix = medals[i] if i < 3 else f"{i + 1}."
-            name = u.full_name or (f"@{u.username}" if u.username else str(u.id))
+            name = display_name(u)
             lines.append(f"{prefix} {name} — {total} 🎴")
         return "\n".join(lines)
 
@@ -371,7 +372,7 @@ async def _top_text(session: AsyncSession, mode: str) -> str:
     lines = ["🏆 <b>Топ по токенам</b>\n"]
     for i, u in enumerate(top_users):
         prefix = medals[i] if i < 3 else f"{i + 1}."
-        name = u.full_name or (f"@{u.username}" if u.username else str(u.id))
+        name = display_name(u)
         lines.append(f"{prefix} {name} — {u.tokens} 💰")
     return "\n".join(lines)
 

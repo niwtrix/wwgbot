@@ -2,6 +2,7 @@ import asyncio
 import contextlib
 import random
 import re
+from html import escape
 
 from aiogram import Bot, F, Router
 from aiogram.filters import Command
@@ -36,6 +37,7 @@ from app.keyboards.admin import (
     users_list_kb,
 )
 from app.services.card_sender import send_card
+from app.services.format import display_name
 from app.services.health_report import build_status_report
 from app.states.admin import (
     BroadcastMessage,
@@ -185,7 +187,7 @@ async def cmd_testcard(message: Message, session: AsyncSession, bot: Bot) -> Non
             if matched_rarity is not None:
                 cards = [c for c in await list_active_cards(session) if c.rarity_id == matched_rarity.id]
                 if not cards:
-                    await message.answer(f"В редкости «{matched_rarity.name}» пока нет активных карточек.")
+                    await message.answer(f"В редкости «{escape(matched_rarity.name)}» пока нет активных карточек.")
                     return
                 card = random.choice(cards)
             else:
@@ -456,7 +458,7 @@ async def on_newcard_twitch(message: Message, state: FSMContext, session: AsyncS
     await state.set_state(NewCard.rarity)
     rarities = await list_rarities(session)
     lines = ["Выбери редкость, пришли её название текстом:"]
-    lines += [f"— {r.name}" for r in rarities]
+    lines += [f"— {escape(r.name)}" for r in rarities]
     await message.answer("\n".join(lines))
 
 
@@ -465,7 +467,7 @@ async def on_newcard_rarity(message: Message, state: FSMContext, session: AsyncS
     rarities = await list_rarities(session)
     match = next((r for r in rarities if r.name.lower() == message.text.strip().lower()), None)
     if match is None:
-        names = ", ".join(r.name for r in rarities)
+        names = ", ".join(escape(r.name) for r in rarities)
         await message.answer(f"Не нашёл такую редкость. Доступны: {names}")
         return
     await state.update_data(rarity_id=match.id)
@@ -505,7 +507,7 @@ async def on_newcard_photo(message: Message, state: FSMContext, session: AsyncSe
     data = await state.get_data()
     card = await _create_card_from_state(session, data, message.photo[-1].file_id)
     await state.clear()
-    await message.answer(f"✅ Карточка «{card.name}» добавлена в пул.", reply_markup=admin_main_menu())
+    await message.answer(f"✅ Карточка «{escape(card.name)}» добавлена в пул.", reply_markup=admin_main_menu())
 
 
 @router.message(NewCard.photo)
@@ -517,7 +519,7 @@ async def on_newcard_photo_skip(message: Message, state: FSMContext, session: As
     card = await _create_card_from_state(session, data, None)
     await state.clear()
     await message.answer(
-        f"✅ Карточка «{card.name}» добавлена в пул (без фото — добавь его позже).",
+        f"✅ Карточка «{escape(card.name)}» добавлена в пул (без фото — добавь его позже).",
         reply_markup=admin_main_menu(),
     )
 
@@ -547,11 +549,11 @@ async def cb_rarity_detail(callback: CallbackQuery, session: AsyncSession) -> No
     count = result.scalar_one()
     emoji_id_text = rarity.emoji_id or "не задан"
     text = (
-        f"🏷 <b>{rarity.name}</b>\n\n"
+        f"🏷 <b>{escape(rarity.name)}</b>\n\n"
         f"Вес: {rarity.weight:g}\n"
         f"Награда токенами: {rarity.token_reward}\n"
-        f"Запасной emoji: {rarity.emoji_fallback}\n"
-        f"Премиум emoji ID: <code>{emoji_id_text}</code>\n"
+        f"Запасной emoji: {escape(rarity.emoji_fallback)}\n"
+        f"Премиум emoji ID: <code>{escape(emoji_id_text)}</code>\n"
         f"Карточек с этой редкостью: {count}"
     )
     await callback.message.edit_text(text, parse_mode="HTML", reply_markup=rarity_edit_menu_kb(rarity))
@@ -601,7 +603,7 @@ async def on_rarity_field_value(message: Message, state: FSMContext, session: As
 
     await session.commit()
     await state.clear()
-    await message.answer(f"✅ Обновлено: {rarity.name}", reply_markup=back_to_main_kb())
+    await message.answer(f"✅ Обновлено: {escape(rarity.name)}", reply_markup=back_to_main_kb())
 
 
 @router.callback_query(F.data == "adm:newrarity")
@@ -660,7 +662,7 @@ async def on_newrarity_token_reward(message: Message, state: FSMContext, session
     session.add(rarity)
     await session.commit()
     await state.clear()
-    await message.answer(f"✅ Редкость «{rarity.name}» создана.", reply_markup=admin_main_menu())
+    await message.answer(f"✅ Редкость «{escape(rarity.name)}» создана.", reply_markup=admin_main_menu())
 
 
 @router.callback_query(F.data.startswith("adm:rdelask:"))
@@ -823,17 +825,17 @@ async def cb_cases_list(callback: CallbackQuery, session: AsyncSession) -> None:
 
 def _case_detail_text(case: Case) -> str:
     lines = [
-        f"🎁 <b>{case.name}</b>\n",
+        f"🎁 <b>{escape(case.name)}</b>\n",
         f"Цена: {case.price_tokens} 🪙",
         f"Статус: {'активен ✅' if case.is_active else 'выключен 🚫'}",
     ]
     if case.description:
-        lines.append(f"Описание: {case.description}")
+        lines.append(f"Описание: {escape(case.description)}")
     lines.append("")
     lines.append("Содержимое:")
     if case.odds:
         for o in case.odds:
-            lines.append(f"{o.rarity.emoji_fallback} {o.rarity.name}: вес {o.weight:g}")
+            lines.append(f"{escape(o.rarity.emoji_fallback)} {escape(o.rarity.name)}: вес {o.weight:g}")
     else:
         lines.append("— пусто, добавь редкости через «Содержимое» —")
     return "\n".join(lines)
@@ -882,7 +884,7 @@ async def on_case_field_value(message: Message, state: FSMContext, session: Asyn
 
     await session.commit()
     await state.clear()
-    await message.answer(f"✅ Обновлено: {case.name}", reply_markup=back_to_main_kb())
+    await message.answer(f"✅ Обновлено: {escape(case.name)}", reply_markup=back_to_main_kb())
 
 
 @router.callback_query(F.data == "adm:newcase")
@@ -923,7 +925,7 @@ async def on_newcase_price(message: Message, state: FSMContext, session: AsyncSe
     await session.commit()
     await state.clear()
     await message.answer(
-        f"✅ Кейс «{case.name}» создан. Не забудь добавить содержимое через «Содержимое».",
+        f"✅ Кейс «{escape(case.name)}» создан. Не забудь добавить содержимое через «Содержимое».",
         reply_markup=admin_main_menu(),
     )
 
@@ -969,7 +971,7 @@ async def cb_case_odds(callback: CallbackQuery, session: AsyncSession) -> None:
         return
     rarities = await list_rarities(session)
     await callback.message.edit_text(
-        f"🎲 <b>Содержимое кейса «{case.name}»</b>\n\n"
+        f"🎲 <b>Содержимое кейса «{escape(case.name)}»</b>\n\n"
         "Тапни редкость, чтобы задать её вес в этом кейсе (0 — убрать из кейса).",
         parse_mode="HTML",
         reply_markup=case_odds_kb(case, rarities),
@@ -1004,7 +1006,7 @@ async def on_case_odds_value(message: Message, state: FSMContext, session: Async
     case = await get_case(session, data["case_id"])
     await state.clear()
     await message.answer(
-        f"✅ Обновлено содержимое кейса «{case.name}».",
+        f"✅ Обновлено содержимое кейса «{escape(case.name)}».",
         reply_markup=back_to_main_kb(),
     )
 
@@ -1026,8 +1028,7 @@ async def _users_page_text(session: AsyncSession, page: int) -> tuple[str, int]:
 
     lines = [f"👥 <b>Пользователи</b> ({len(users)} всего)\n"]
     for u in chunk:
-        name = f"@{u.username}" if u.username else (u.full_name or "без имени")
-        lines.append(f"<code>{u.id}</code> — {name} — {u.tokens} 🪙")
+        lines.append(f"<code>{u.id}</code> — {display_name(u)} — {u.tokens} 🪙")
     return "\n".join(lines), total_pages
 
 
@@ -1092,7 +1093,7 @@ async def cb_broadcast_send(callback: CallbackQuery, state: FSMContext, session:
             failed += 1
         await asyncio.sleep(0.05)
 
-    admin_name = f"@{callback.from_user.username}" if callback.from_user.username else callback.from_user.full_name
+    admin_name = display_name(callback.from_user)
     log_event(session, "broadcast", callback.from_user.id, f"{admin_name}: доставлено {sent}, не удалось {failed}")
     await session.commit()
 
@@ -1129,7 +1130,7 @@ async def on_granttokens_user(message: Message, state: FSMContext, session: Asyn
         await message.answer("Не нашёл такого пользователя. Проверь ID/username и попробуй ещё раз, или /cancel:")
         return
 
-    label = f"@{user.username}" if user.username else (user.full_name or str(user.id))
+    label = display_name(user)
     await state.update_data(target_id=user.id, target_label=label)
     await state.set_state(GrantTokens.waiting_amount)
     await message.answer(
@@ -1156,7 +1157,7 @@ async def on_granttokens_amount(message: Message, state: FSMContext, session: As
 
     user.tokens = max(0, user.tokens + amount)
     sign = "+" if amount >= 0 else ""
-    admin_name = f"@{message.from_user.username}" if message.from_user.username else message.from_user.full_name
+    admin_name = display_name(message.from_user)
     log_event(
         session, "token_grant", message.from_user.id,
         f"{admin_name} начислил(а) {data['target_label']}: {sign}{amount} 🪙 (стало {user.tokens})",
@@ -1218,7 +1219,7 @@ async def cb_stats(callback: CallbackQuery, session: AsyncSession) -> None:
     ]
     for r in rarities:
         c = (await session.execute(select(func.count()).select_from(Card).where(Card.rarity_id == r.id))).scalar_one()
-        lines.append(f"{r.emoji_fallback} {r.name}: {c} карточек")
+        lines.append(f"{escape(r.emoji_fallback)} {escape(r.name)}: {c} карточек")
 
     await callback.message.edit_text("\n".join(lines), parse_mode="HTML", reply_markup=back_to_main_kb())
     await callback.answer()

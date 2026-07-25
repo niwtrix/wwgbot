@@ -10,10 +10,23 @@ PLATFORM_EMOJI = {
 }
 
 
+def display_name(user) -> str:
+    """HTML-safe display name for any object with .username/.full_name/.id (our User model
+    or aiogram's TgUser both qualify). Telegram's HTML parser rejects unescaped &, <, > —
+    a plain '&' in someone's name would otherwise break every message that shows it."""
+    if getattr(user, "username", None):
+        return f"@{escape(user.username)}"
+    full_name = getattr(user, "full_name", None)
+    if full_name:
+        return escape(full_name)
+    return str(user.id)
+
+
 def tg_emoji(fallback: str, emoji_id: str | None) -> str:
+    safe_fallback = escape(fallback)
     if emoji_id:
-        return f'<tg-emoji emoji-id="{escape(emoji_id)}">{fallback}</tg-emoji>'
-    return fallback
+        return f'<tg-emoji emoji-id="{escape(emoji_id)}">{safe_fallback}</tg-emoji>'
+    return safe_fallback
 
 
 def rarity_html(rarity: Rarity) -> str:

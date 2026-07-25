@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from html import escape
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,12 +10,7 @@ from app.db.cards_repo import list_active_cards
 from app.db.models import Card, Case, User, UserCard
 from app.db.settings_repo import get_setting, get_setting_int
 from app.services.draw import weighted_draw
-
-
-def _name(user: User) -> str:
-    if user.username:
-        return f"@{user.username}"
-    return user.full_name or str(user.id)
+from app.services.format import display_name as _name
 
 
 @dataclass
@@ -78,7 +74,7 @@ async def pull_card(session: AsyncSession, user: User) -> PullResult | None:
     result = await _apply_pull(session, user, card, owned)
     user.last_pull_at = datetime.now(timezone.utc)
     dup_note = " [дубль]" if result.is_duplicate else ""
-    log_event(session, "pull", user.id, f"{_name(user)} получил(а) «{card.name}» ({card.rarity.name}){dup_note}, +{result.tokens_awarded} 🪙")
+    log_event(session, "pull", user.id, f"{_name(user)} получил(а) «{escape(card.name)}» ({escape(card.rarity.name)}){dup_note}, +{result.tokens_awarded} 🪙")
     await session.commit()
     return result
 
@@ -102,7 +98,7 @@ async def buy_extra_roll(session: AsyncSession, user: User) -> tuple[PullResult,
     user.tokens -= price
     result = await _apply_pull(session, user, card, owned)
     dup_note = " [дубль]" if result.is_duplicate else ""
-    log_event(session, "extra_roll", user.id, f"{_name(user)} купил(а) доп. ролл за {price} 🪙 — «{card.name}» ({card.rarity.name}){dup_note}")
+    log_event(session, "extra_roll", user.id, f"{_name(user)} купил(а) доп. ролл за {price} 🪙 — «{escape(card.name)}» ({escape(card.rarity.name)}){dup_note}")
     await session.commit()
     return result, price
 
@@ -133,6 +129,6 @@ async def open_case(session: AsyncSession, user: User, case: Case) -> PullResult
     user.tokens -= case.price_tokens
     result = await _apply_pull(session, user, card, owned)
     dup_note = " [дубль]" if result.is_duplicate else ""
-    log_event(session, "case_open", user.id, f"{_name(user)} открыл(а) «{case.name}» — «{card.name}» ({card.rarity.name}){dup_note}")
+    log_event(session, "case_open", user.id, f"{_name(user)} открыл(а) «{escape(case.name)}» — «{escape(card.name)}» ({escape(card.rarity.name)}){dup_note}")
     await session.commit()
     return result

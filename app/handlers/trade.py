@@ -1,4 +1,5 @@
 import contextlib
+from html import escape
 
 from aiogram import Bot, F, Router
 from aiogram.filters import Command
@@ -6,7 +7,7 @@ from aiogram.types import CallbackQuery, Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.activity_repo import log_event
-from app.db.models import Trade, User
+from app.db.models import Trade
 from app.db.trades_repo import (
     add_item,
     addable_cards,
@@ -19,6 +20,7 @@ from app.db.trades_repo import (
     offered_items_by,
     remove_item,
 )
+from app.services.format import display_name as _display_name
 from app.services.users import get_or_create_user
 from app.keyboards.trade import (
     trade_add_picker_kb,
@@ -32,16 +34,10 @@ from app.keyboards.trade import (
 router = Router(name="trade")
 
 
-def _display_name(user: User) -> str:
-    if user.username:
-        return f"@{user.username}"
-    return user.full_name or str(user.id)
-
-
 def _fmt_items(items) -> str:
     if not items:
         return "— ничего —"
-    return "\n".join(f"{i.card.rarity.emoji_fallback} {i.card.name} ×{i.qty}" for i in items)
+    return "\n".join(f"{i.card.rarity.emoji_fallback} {escape(i.card.name)} ×{i.qty}" for i in items)
 
 
 def _room_text(trade: Trade, viewer_id: int) -> str:
@@ -333,6 +329,12 @@ async def cb_trade_ready(callback: CallbackQuery, session: AsyncSession, bot: Bo
         trade.ready_counterparty = not trade.ready_counterparty
     await session.commit()
 
+    # Re-fetch after commit rather than trusting the pre-commit object in memory — if both
+    # sides tap "ready" almost simultaneously, this is what lets whichever commit lands
+    # second correctly observe that both flags are now set (SQLite serializes the writes,
+    # so exactly one of the two concurrent handlers gets a true "both ready" here).
+    trade = await get_trade(session, trade.id)
+
     if trade.ready_initiator and trade.ready_counterparty:
         trade.status = "confirming"
         trade.ready_initiator = False
@@ -359,6 +361,8 @@ async def cb_trade_confirm(callback: CallbackQuery, session: AsyncSession, bot: 
     else:
         trade.ready_counterparty = True
     await session.commit()
+
+    trade = await get_trade(session, trade.id)  # see note in cb_trade_ready about this re-fetch
 
     if trade.ready_initiator and trade.ready_counterparty:
         items_i = len(offered_items_by(trade, trade.initiator_id))
