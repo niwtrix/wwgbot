@@ -102,3 +102,36 @@ class CaseOdds(Base):
 
     case: Mapped["Case"] = relationship(back_populates="odds")
     rarity: Mapped["Rarity"] = relationship()
+
+
+class Trade(Base):
+    __tablename__ = "trades"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    initiator_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id"))
+    counterparty_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id"))
+    # pending (awaiting accept) -> active (picking cards) -> confirming (both readied,
+    # final accept/reject) -> completed / cancelled
+    status: Mapped[str] = mapped_column(String(16), default="pending")
+    ready_initiator: Mapped[bool] = mapped_column(Boolean, default=False)
+    ready_counterparty: Mapped[bool] = mapped_column(Boolean, default=False)
+    room_msg_initiator: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    room_msg_counterparty: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    initiator: Mapped["User"] = relationship(foreign_keys=[initiator_id])
+    counterparty: Mapped["User"] = relationship(foreign_keys=[counterparty_id])
+    items: Mapped[list["TradeItem"]] = relationship(back_populates="trade", cascade="all, delete-orphan")
+
+
+class TradeItem(Base):
+    __tablename__ = "trade_items"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    trade_id: Mapped[int] = mapped_column(ForeignKey("trades.id"))
+    offered_by_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id"))
+    card_id: Mapped[int] = mapped_column(ForeignKey("cards.id"))
+    qty: Mapped[int] = mapped_column(Integer, default=1)
+
+    trade: Mapped["Trade"] = relationship(back_populates="items")
+    card: Mapped["Card"] = relationship()
