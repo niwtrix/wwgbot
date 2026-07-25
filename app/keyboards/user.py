@@ -37,10 +37,33 @@ def card_links_kb(card: Card) -> InlineKeyboardMarkup | None:
 
 
 def mycards_kb(page: int, total_pages: int) -> InlineKeyboardMarkup:
+    rows = [[InlineKeyboardButton(text="🖼 Смотреть как карточки", callback_data="mygallery:0")]]
+
+    if total_pages > 1:
+        nav = []
+        if page > 0:
+            nav.append(InlineKeyboardButton(text="⬅️", callback_data=f"mycards:{page - 1}"))
+        nav.append(InlineKeyboardButton(text=f"{page + 1}/{total_pages}", callback_data="noop"))
+        if page < total_pages - 1:
+            nav.append(InlineKeyboardButton(text="➡️", callback_data=f"mycards:{page + 1}"))
+        rows.append(nav)
+
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def mycards_gallery_kb(index: int, total: int, card: Card) -> InlineKeyboardMarkup:
+    rows = []
+    links = card_links_kb(card)
+    if links:
+        rows.extend(links.inline_keyboard)
+
     nav = []
-    if page > 0:
-        nav.append(InlineKeyboardButton(text="⬅️", callback_data=f"mycards:{page - 1}"))
-    nav.append(InlineKeyboardButton(text=f"{page + 1}/{max(total_pages, 1)}", callback_data="noop"))
-    if page < total_pages - 1:
-        nav.append(InlineKeyboardButton(text="➡️", callback_data=f"mycards:{page + 1}"))
-    return InlineKeyboardMarkup(inline_keyboard=[nav])
+    if index > 0:
+        nav.append(InlineKeyboardButton(text="⬅️", callback_data=f"mygallery:{index - 1}"))
+    nav.append(InlineKeyboardButton(text=f"{index + 1}/{total}", callback_data="noop"))
+    if index < total - 1:
+        nav.append(InlineKeyboardButton(text="➡️", callback_data=f"mygallery:{index + 1}"))
+    rows.append(nav)
+
+    rows.append([InlineKeyboardButton(text="📋 К списку", callback_data="mygallery:list")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)

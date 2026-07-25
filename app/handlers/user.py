@@ -11,7 +11,7 @@ from app.db.cards_repo import list_active_cards
 from app.db.cases_repo import get_case, list_active_cases
 from app.db.models import Card, User, UserCard
 from app.db.settings_repo import get_setting, get_setting_int
-from app.keyboards.user import buy_roll_kb, cases_list_kb, mycards_kb
+from app.keyboards.user import buy_roll_kb, cases_list_kb, mycards_gallery_kb, mycards_kb
 from app.services.card_sender import send_card
 from app.services.collection import buy_extra_roll, open_case, pull_card
 from app.services.users import get_or_create_user, seconds_until_ready
@@ -161,7 +161,7 @@ async def cmd_profile(message: Message, session: AsyncSession) -> None:
     )
 
 
-async def _mycards_page_text(session: AsyncSession, user_id: int, page: int) -> tuple[str, int]:
+async def _owned_cards(session: AsyncSession, user_id: int) -> list[UserCard]:
     result = await session.execute(
         select(UserCard)
         .where(UserCard.user_id == user_id)
@@ -169,8 +169,10 @@ async def _mycards_page_text(session: AsyncSession, user_id: int, page: int) -> 
         .join(Card)
         .order_by(Card.name)
     )
-    owned = list(result.scalars().all())
+    return list(result.scalars().all())
 
+
+def _mycards_text_for_page(owned: list[UserCard], page: int) -> tuple[str, int]:
     if not owned:
         return "У тебя пока нет карточек. Испытай удачу: /card", 1
 
@@ -190,17 +192,53 @@ async def _mycards_page_text(session: AsyncSession, user_id: int, page: int) -> 
 
 @router.message(Command("mycards"))
 async def cmd_mycards(message: Message, session: AsyncSession) -> None:
-    text, total_pages = await _mycards_page_text(session, message.from_user.id, 0)
-    kb = mycards_kb(0, total_pages) if total_pages > 1 else None
+    owned = await _owned_cards(session, message.from_user.id)
+    text, total_pages = _mycards_text_for_page(owned, 0)
+    kb = mycards_kb(0, total_pages) if owned else None
     await message.answer(text, parse_mode="HTML", reply_markup=kb)
 
 
 @router.callback_query(F.data.startswith("mycards:"))
 async def cb_mycards_page(callback: CallbackQuery, session: AsyncSession) -> None:
     page = int(callback.data.split(":")[1])
-    text, total_pages = await _mycards_page_text(session, callback.from_user.id, page)
-    kb = mycards_kb(page, total_pages) if total_pages > 1 else None
+    owned = await _owned_cards(session, callback.from_user.id)
+    text, total_pages = _mycards_text_for_page(owned, page)
+    kb = mycards_kb(page, total_pages) if owned else None
     await callback.message.edit_text(text, parse_mode="HTML", reply_markup=kb)
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("mygallery:"))
+async def cb_mycards_gallery(callback: CallbackQuery, session: AsyncSession, bot: Bot) -> None:
+    arg = callback.data.split(":", 1)[1]
+    owned = await _owned_cards(session, callback.from_user.id)
+    if not owned:
+        await callback.answer("У тебя пока нет карточек.", show_alert=True)
+        return
+
+    if arg == "list":
+        with contextlib.suppress(Exception):
+            await callback.message.delete()
+        text, total_pages = _mycards_text_for_page(owned, 0)
+        await bot.send_message(
+            callback.message.chat.id, text, parse_mode="HTML", reply_markup=mycards_kb(0, total_pages)
+        )
+        await callback.answer()
+        return
+
+    index = max(0, min(int(arg), len(owned) - 1))
+    uc = owned[index]
+    with contextlib.suppress(Exception):
+        await callback.message.delete()
+    extra = f"У тебя: ×{uc.count}" if uc.count > 1 else ""
+    await send_card(
+        bot,
+        callback.message.chat.id,
+        session,
+        uc.card,
+        extra_caption=extra,
+        reply_markup=mycards_gallery_kb(index, len(owned), uc.card),
+    )
     await callback.answer()
 
 
