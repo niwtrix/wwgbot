@@ -11,7 +11,7 @@ from app.db.cards_repo import list_active_cards
 from app.db.cases_repo import get_case, list_active_cases
 from app.db.models import Card, User, UserCard
 from app.db.settings_repo import get_setting, get_setting_int
-from app.keyboards.user import buy_roll_kb, cases_list_kb, mycards_gallery_kb, mycards_kb, profile_kb
+from app.keyboards.user import buy_roll_kb, cases_list_kb, mycards_gallery_kb, mycards_kb, profile_kb, top_kb
 from app.services.card_sender import send_card
 from app.services.collection import buy_extra_roll, open_case, pull_card
 from app.services.users import get_or_create_user, seconds_until_ready
@@ -296,22 +296,52 @@ async def cb_noop(callback: CallbackQuery) -> None:
     await callback.answer()
 
 
-@router.message(Command("top"))
-async def cmd_top(message: Message, session: AsyncSession) -> None:
+async def _top_text(session: AsyncSession, mode: str) -> str:
+    medals = ["🥇", "🥈", "🥉"]
+
+    if mode == "cards":
+        result = await session.execute(
+            select(User, func.coalesce(func.sum(UserCard.count), 0))
+            .outerjoin(UserCard, UserCard.user_id == User.id)
+            .where(User.hide_from_top.is_(False))
+            .group_by(User.id)
+            .order_by(func.coalesce(func.sum(UserCard.count), 0).desc())
+            .limit(10)
+        )
+        rows = [row for row in result.all() if row[1] > 0]
+        if not rows:
+            return "Пока никто не собрал ни одной карточки."
+        lines = ["🏆 <b>Топ по карточкам</b>\n"]
+        for i, (u, total) in enumerate(rows):
+            prefix = medals[i] if i < 3 else f"{i + 1}."
+            name = u.full_name or (f"@{u.username}" if u.username else str(u.id))
+            lines.append(f"{prefix} {name} — {total} 🎴")
+        return "\n".join(lines)
+
     result = await session.execute(
         select(User).where(User.hide_from_top.is_(False)).order_by(User.tokens.desc()).limit(10)
     )
     top_users = list(result.scalars().all())
-
     if not top_users:
-        await message.answer("Пока никто не собрал ни одного токена.")
-        return
-
-    medals = ["🥇", "🥈", "🥉"]
+        return "Пока никто не собрал ни одного токена."
     lines = ["🏆 <b>Топ по токенам</b>\n"]
     for i, u in enumerate(top_users):
         prefix = medals[i] if i < 3 else f"{i + 1}."
         name = u.full_name or (f"@{u.username}" if u.username else str(u.id))
         lines.append(f"{prefix} {name} — {u.tokens} 💰")
+    return "\n".join(lines)
 
-    await message.answer("\n".join(lines), parse_mode="HTML")
+
+@router.message(Command("top"))
+async def cmd_top(message: Message, session: AsyncSession) -> None:
+    text = await _top_text(session, "tokens")
+    await message.answer(text, parse_mode="HTML", reply_markup=top_kb("tokens"))
+
+
+@router.callback_query(F.data.startswith("top:"))
+async def cb_top_switch(callback: CallbackQuery, session: AsyncSession) -> None:
+    mode = callback.data.split(":", 1)[1]
+    text = await _top_text(session, mode)
+    with contextlib.suppress(Exception):
+        await callback.message.edit_text(text, parse_mode="HTML", reply_markup=top_kb(mode))
+    await callback.answer()

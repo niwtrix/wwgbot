@@ -36,6 +36,19 @@ def card_links_kb(card: Card) -> InlineKeyboardMarkup | None:
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
+def top_kb(mode: str) -> InlineKeyboardMarkup:
+    tokens_text = "✅ 🪙 По токенам" if mode == "tokens" else "🪙 По токенам"
+    cards_text = "✅ 🎴 По карточкам" if mode == "cards" else "🎴 По карточкам"
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text=tokens_text, callback_data="top:tokens"),
+                InlineKeyboardButton(text=cards_text, callback_data="top:cards"),
+            ]
+        ]
+    )
+
+
 def profile_kb(hide_from_top: bool) -> InlineKeyboardMarkup:
     text = "👁 Показывать себя в /top" if hide_from_top else "🙈 Скрыть себя из /top"
     return InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text=text, callback_data="toggletop")]])
