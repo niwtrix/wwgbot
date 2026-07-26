@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Кейсы — WWGang Admin{% endblock %}
+{% block content %}
+<div class="toolbar">
+  <h1 style="margin:0">🎁 Кейсы</h1>
+  <a class="btn" href="/cases/new">➕ Новый кейс</a>
+</div>
+
+<div class="card">
+<table>
+  <tr><th>Название</th><th>Цена</th><th>Статус</th><th>Содержимое</th><th>Действия</th></tr>
+  {% for c in cases %}
+  <tr>
+    <td>{{ c.name }}</td>
+    <td>{{ c.price_tokens }} 🪙</td>
+    <td>{% if c.is_active %}<span class="pill pill-ok">активен</span>{% else %}<span class="pill pill-muted">выключен</span>{% endif %}</td>
+    <td>
+      {% for o in c.odds %}{% if o.weight > 0 %}{{ o.rarity.emoji_fallback }} {{ o.rarity.name }} ({{ o.weight }}){% if not loop.last %}, {% endif %}{% endif %}{% endfor %}
+    </td>
+    <td>
+      <a class="btn btn-sm btn-secondary" href="/cases/{{ c.id }}/edit">✏️</a>
+      <form method="post" action="/cases/{{ c.id }}/delete" style="display:inline" onsubmit="return confirm('Удалить кейс «{{ c.name }}»?');">
+        <button class="btn btn-sm btn-danger" type="submit">🗑</button>
+      </form>
+    </td>
+  </tr>
+  {% endfor %}
+</table>
+</div>
+{% endblock %}

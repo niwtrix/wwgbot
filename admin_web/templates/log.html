@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Лог событий — WWGang Admin{% endblock %}
+{% block content %}
+<h1>📜 Лог событий</h1>
+
+<div class="filters">
+  <a href="/log?type=all" class="{{ 'active' if current_type == 'all' else '' }}">Все</a>
+  {% for et in event_types %}
+  <a href="/log?type={{ et }}" class="{{ 'active' if current_type == et else '' }}">{{ event_labels[et] }}</a>
+  {% endfor %}
+</div>
+
+<div class="card">
+{% if not events %}
+  <p class="muted">Пока пусто.</p>
+{% else %}
+<table>
+  <tr><th>Время (UTC)</th><th>Событие</th></tr>
+  {% for e in events %}
+  <tr>
+    <td class="mono" style="white-space:nowrap">{{ e.created_at.strftime('%d.%m %H:%M') }}</td>
+    <td>{{ e.detail }}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% endif %}
+</div>
+
+{% if total_pages > 1 %}
+<div class="pagination">
+  {% for p in range(total_pages) %}
+    {% if p == page %}<span class="current">{{ p + 1 }}</span>
+    {% else %}<a href="/log?type={{ current_type }}&page={{ p }}">{{ p + 1 }}</a>{% endif %}
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

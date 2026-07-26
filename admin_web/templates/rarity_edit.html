@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Новая редкость' if not rarity else rarity.name }} — WWGang Admin{% endblock %}
+{% block content %}
+<h1>{{ '➕ Новая редкость' if not rarity else '✏️ ' + rarity.name }}</h1>
+
+<div class="card" style="max-width:480px">
+<form method="post" action="{{ '/rarities/new' if not rarity else '/rarities/' + rarity.id + '/edit' }}">
+  <label>Название</label>
+  <input name="name" value="{{ rarity.name if rarity else '' }}" required>
+
+  <div class="form-row">
+    <div><label>Вес (шанс выпадения)</label><input name="weight" type="number" step="0.1" value="{{ rarity.weight if rarity else 10 }}"></div>
+    <div><label>Награда токенами</label><input name="token_reward" type="number" value="{{ rarity.token_reward if rarity else 5 }}"></div>
+  </div>
+
+  <div class="form-row">
+    <div><label>Обычный emoji</label><input name="emoji_fallback" value="{{ rarity.emoji_fallback if rarity else '🔹' }}"></div>
+    <div><label>Премиум emoji ID</label><input name="emoji_id" value="{{ rarity.emoji_id if rarity and rarity.emoji_id else '' }}"></div>
+  </div>
+
+  <label style="display:flex; align-items:center; gap:8px; margin-top:16px;">
+    <input type="checkbox" name="case_only" style="width:auto" {{ 'checked' if rarity and rarity.case_only else '' }}>
+    <span>Только из кейсов (исключена из обычного ролла)</span>
+  </label>
+
+  <div style="margin-top:20px; display:flex; gap:10px;">
+    <button class="btn" type="submit">💾 Сохранить</button>
+    <a class="btn btn-secondary" href="/rarities">Отмена</a>
+  </div>
+</form>
+</div>
+{% endblock %}

@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Пользователи — WWGang Admin{% endblock %}
+{% block content %}
+<h1>👥 Пользователи ({{ total }})</h1>
+
+<form method="get" action="/users" class="form-row" style="margin-bottom:16px">
+  <div><input name="q" value="{{ q }}" placeholder="Поиск по @username, имени или ID"></div>
+  <div style="flex:0"><button class="btn" type="submit">Найти</button></div>
+</form>
+
+<div class="card">
+<table>
+  <tr><th>ID</th><th>Имя</th><th>Токены</th><th>Дней подряд</th><th>Скрыт из топа</th><th>Начислить</th></tr>
+  {% for u in users %}
+  <tr>
+    <td class="mono">{{ u.id }}</td>
+    <td>{{ u.full_name }}{% if u.username %} <span class="muted">@{{ u.username }}</span>{% endif %}</td>
+    <td>{{ u.tokens }} 🪙</td>
+    <td>{{ u.daily_streak }} 🔥</td>
+    <td>{{ '🙈' if u.hide_from_top else '—' }}</td>
+    <td>
+      <form method="post" action="/users/{{ u.id }}/grant" style="display:flex; gap:6px;">
+        <input type="number" name="amount" placeholder="±токены" style="width:110px">
+        <button class="btn btn-sm" type="submit">OK</button>
+      </form>
+    </td>
+  </tr>
+  {% endfor %}
+</table>
+</div>
+
+{% if total_pages > 1 %}
+<div class="pagination">
+  {% for p in range(total_pages) %}
+    {% if p == page %}<span class="current">{{ p + 1 }}</span>
+    {% else %}<a href="/users?q={{ q }}&page={{ p }}">{{ p + 1 }}</a>{% endif %}
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

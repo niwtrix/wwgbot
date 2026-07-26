@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Карточки — WWGang Admin{% endblock %}
+{% block content %}
+<div class="toolbar">
+  <h1 style="margin:0">📇 Карточки участников ({{ cards|length }})</h1>
+  <a class="btn" href="/cards/new">➕ Новая карточка</a>
+</div>
+
+<div class="card">
+<table>
+  <tr><th>Фото</th><th>Имя</th><th>Редкость</th><th>Статус</th><th>Действия</th></tr>
+  {% for card in cards %}
+  <tr>
+    <td>
+      {% if card.photo_file %}
+        <img class="thumb" src="/card-images/{{ card.photo_file }}">
+      {% else %}
+        <div class="thumb"></div>
+      {% endif %}
+    </td>
+    <td>{{ card.name }}<div class="muted mono">{{ card.slug }}</div></td>
+    <td>{{ card.rarity.emoji_fallback }} {{ card.rarity.name }}</td>
+    <td>
+      {% if card.is_active %}<span class="pill pill-ok">активна</span>
+      {% else %}<span class="pill pill-muted">выключена</span>{% endif %}
+    </td>
+    <td>
+      <a class="btn btn-sm btn-secondary" href="/cards/{{ card.id }}/edit">✏️</a>
+      <form method="post" action="/cards/{{ card.id }}/toggle" style="display:inline">
+        <button class="btn btn-sm btn-secondary" type="submit">{{ '🚫' if card.is_active else '✅' }}</button>
+      </form>
+      <form method="post" action="/cards/{{ card.id }}/delete" style="display:inline" onsubmit="return confirm('Удалить карточку «{{ card.name }}»?');">
+        <button class="btn btn-sm btn-danger" type="submit">🗑</button>
+      </form>
+    </td>
+  </tr>
+  {% endfor %}
+</table>
+</div>
+{% endblock %}

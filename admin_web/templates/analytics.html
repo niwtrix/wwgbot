@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Аналитика — WWGang Admin{% endblock %}
+{% block content %}
+<h1>📈 Аналитика (последние {{ days_json|length }} дней)</h1>
+
+<div class="grid grid-3">
+  <div class="card"><h2 style="margin-top:0">Активность по дням</h2><canvas id="chartActivity" height="200"></canvas></div>
+  <div class="card"><h2 style="margin-top:0">Новые пользователи</h2><canvas id="chartJoins" height="200"></canvas></div>
+  <div class="card"><h2 style="margin-top:0">Карточки по редкости</h2><canvas id="chartRarity" height="200"></canvas></div>
+</div>
+
+<div class="card">
+  <h2 style="margin-top:0">Топ-10 по токенам</h2>
+  <canvas id="chartTop" height="100"></canvas>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script>
+const gridColor = "#262b38", textColor = "#8b93a7";
+Chart.defaults.color = textColor;
+Chart.defaults.borderColor = gridColor;
+
+new Chart(document.getElementById('chartActivity'), {
+  type: 'line',
+  data: { labels: {{ days_json|safe }}, datasets: [{ label: 'Пуллы/роллы/кейсы', data: {{ pulls_json|safe }}, borderColor: '#6c8cff', backgroundColor: 'rgba(108,140,255,.15)', tension: .3, fill: true }] },
+  options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+});
+
+new Chart(document.getElementById('chartJoins'), {
+  type: 'bar',
+  data: { labels: {{ days_json|safe }}, datasets: [{ label: 'Новые пользователи', data: {{ joins_json|safe }}, backgroundColor: '#8b5cf6' }] },
+  options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
+});
+
+new Chart(document.getElementById('chartRarity'), {
+  type: 'doughnut',
+  data: { labels: {{ rarity_labels_json|safe }}, datasets: [{ data: {{ rarity_values_json|safe }}, backgroundColor: ['#6c8cff','#8b5cf6','#22c55e','#f59e0b','#ef4444','#ec4899'] }] },
+  options: { plugins: { legend: { position: 'bottom' } } }
+});
+
+new Chart(document.getElementById('chartTop'), {
+  type: 'bar',
+  data: { labels: {{ top_labels_json|safe }}, datasets: [{ label: 'Токены', data: {{ top_values_json|safe }}, backgroundColor: '#22c55e' }] },
+  options: { indexAxis: 'y', plugins: { legend: { display: false } } }
+});
+</script>
+{% endblock %}

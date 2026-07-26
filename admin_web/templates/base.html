@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}WWGang Admin{% endblock %}</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="layout">
+    <div class="sidebar">
+      <div class="brand">🎴 WWGang Admin</div>
+      <nav>
+        <a href="/" class="{{ 'active' if active == 'dashboard' else '' }}">📊 Дашборд</a>
+        <a href="/cards" class="{{ 'active' if active == 'cards' else '' }}">📇 Карточки</a>
+        <a href="/rarities" class="{{ 'active' if active == 'rarities' else '' }}">🏷 Редкости</a>
+        <a href="/cases" class="{{ 'active' if active == 'cases' else '' }}">🎁 Кейсы</a>
+        <a href="/settings" class="{{ 'active' if active == 'settings' else '' }}">⚙️ Настройки</a>
+        <a href="/users" class="{{ 'active' if active == 'users' else '' }}">👥 Пользователи</a>
+        <a href="/log" class="{{ 'active' if active == 'log' else '' }}">📜 Лог событий</a>
+        <a href="/analytics" class="{{ 'active' if active == 'analytics' else '' }}">📈 Аналитика</a>
+        <a href="/broadcast" class="{{ 'active' if active == 'broadcast' else '' }}">📢 Рассылка</a>
+      </nav>
+      <div class="logout"><a href="/logout">🚪 Выйти</a></div>
+    </div>
+    <div class="main">
+      {% if flash %}
+        <div class="flash flash-{{ flash_type or 'ok' }}">{{ flash }}</div>
+      {% endif %}
+      {% block content %}{% endblock %}
+    </div>
+  </div>
+</body>
+</html>

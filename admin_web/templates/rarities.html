@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Редкости — WWGang Admin{% endblock %}
+{% block content %}
+<div class="toolbar">
+  <h1 style="margin:0">🏷 Уровни редкости</h1>
+  <a class="btn" href="/rarities/new">➕ Новая редкость</a>
+</div>
+
+<div class="card">
+<table>
+  <tr><th>Редкость</th><th>Вес</th><th>Награда</th><th>Карточек</th><th>Только из кейсов</th><th>Действия</th></tr>
+  {% for r in rarities %}
+  <tr>
+    <td>{{ r.emoji_fallback }} {{ r.name }}<div class="muted mono">{{ r.id }}</div></td>
+    <td>{{ r.weight }}</td>
+    <td>{{ r.token_reward }} 🪙</td>
+    <td>{{ counts[r.id] }}</td>
+    <td>{{ '✅' if r.case_only else '—' }}</td>
+    <td>
+      <a class="btn btn-sm btn-secondary" href="/rarities/{{ r.id }}/edit">✏️</a>
+      <form method="post" action="/rarities/{{ r.id }}/delete" style="display:inline" onsubmit="return confirm('Удалить редкость «{{ r.name }}»?');">
+        <button class="btn btn-sm btn-danger" type="submit" {{ 'disabled title=Есть карточки с этой редкостью' if counts[r.id] > 0 else '' }}>🗑</button>
+      </form>
+    </td>
+  </tr>
+  {% endfor %}
+</table>
+</div>
+{% endblock %}

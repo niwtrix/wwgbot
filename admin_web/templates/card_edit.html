@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Новая карточка' if not card else 'Карточка: ' + card.name }} — WWGang Admin{% endblock %}
+{% block content %}
+<h1>{{ '➕ Новая карточка' if not card else '✏️ ' + card.name }}</h1>
+
+<div class="card">
+<form method="post" action="{{ '/cards/new' if not card else '/cards/' + card.id|string + '/edit' }}" enctype="multipart/form-data">
+  <div class="form-row">
+    <div>
+      <label>Имя</label>
+      <input name="name" value="{{ card.name if card else '' }}" required>
+    </div>
+    <div>
+      <label>Редкость</label>
+      <select name="rarity_id">
+        {% for r in rarities %}
+        <option value="{{ r.id }}" {{ 'selected' if card and card.rarity_id == r.id else '' }}>{{ r.emoji_fallback }} {{ r.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+
+  <label>Роль / статус</label>
+  <input name="role" value="{{ card.role if card else '' }}">
+
+  <label>Цитата</label>
+  <textarea name="quote">{{ card.quote if card else '' }}</textarea>
+
+  <div class="form-row">
+    <div><label>Telegram URL</label><input name="telegram_url" value="{{ card.telegram_url if card and card.telegram_url else '' }}"></div>
+    <div><label>YouTube URL</label><input name="youtube_url" value="{{ card.youtube_url if card and card.youtube_url else '' }}"></div>
+    <div><label>Twitch URL</label><input name="twitch_url" value="{{ card.twitch_url if card and card.twitch_url else '' }}"></div>
+  </div>
+
+  <label>Фото {% if card and card.photo_file %}(сейчас: {{ card.photo_file }} — загрузи новое, чтобы заменить){% endif %}</label>
+  <input type="file" name="photo" accept="image/*">
+
+  <label style="display:flex; align-items:center; gap:8px; margin-top:16px;">
+    <input type="checkbox" name="is_active" style="width:auto" {{ 'checked' if (not card) or card.is_active else '' }}>
+    <span>Активна (участвует в обычном ролле)</span>
+  </label>
+
+  <div style="margin-top:20px; display:flex; gap:10px;">
+    <button class="btn" type="submit">💾 Сохранить</button>
+    <a class="btn btn-secondary" href="/cards">Отмена</a>
+  </div>
+</form>
+</div>
+{% endblock %}

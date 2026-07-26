@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Дашборд — WWGang Admin{% endblock %}
+{% block content %}
+<h1>📊 Дашборд</h1>
+
+<div class="grid grid-4">
+  <div class="card"><div class="stat-label">Пользователей</div><div class="stat-value">{{ users_count }}</div></div>
+  <div class="card"><div class="stat-label">Карточек в пуле</div><div class="stat-value">{{ cards_count }}</div></div>
+  <div class="card"><div class="stat-label">Токенов на руках</div><div class="stat-value">{{ total_tokens }}</div></div>
+  <div class="card"><div class="stat-label">Всего пуллов</div><div class="stat-value">{{ total_pulls }}</div></div>
+</div>
+
+<h2>Сервер</h2>
+<div class="grid grid-4">
+  <div class="card">
+    <div class="stat-label">CPU</div>
+    <div class="stat-value">{{ stats.cpu_percent }}%</div>
+    <div class="stat-sub">{{ stats.cpu_count }} ядро(а), load {{ stats.load_avg|join(' / ') }}</div>
+  </div>
+  <div class="card">
+    <div class="stat-label">RAM</div>
+    <div class="stat-value">{{ stats.mem_percent }}%</div>
+    <div class="stat-sub">{{ stats.mem_used_mb }} / {{ stats.mem_total_mb }} MB</div>
+  </div>
+  <div class="card">
+    <div class="stat-label">Диск</div>
+    <div class="stat-value">{{ stats.disk_percent }}%</div>
+    <div class="stat-sub">{{ stats.disk_used_gb }} / {{ stats.disk_total_gb }} GB</div>
+  </div>
+  <div class="card">
+    <div class="stat-label">Бот-процесс</div>
+    <div class="stat-value">
+      {% if bot_status.active == 'active' %}
+        <span class="pill pill-ok">● active</span>
+      {% else %}
+        <span class="pill pill-err">● {{ bot_status.active }}</span>
+      {% endif %}
+    </div>
+    <div class="stat-sub">автозапуск: {{ bot_status.enabled }} · активных трейдов: {{ active_trades }}</div>
+  </div>
+</div>
+
+<h2>Последние логи бота</h2>
+<div class="log-box">{{ logs }}</div>
+{% endblock %}

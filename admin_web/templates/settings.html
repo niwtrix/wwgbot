@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Настройки — WWGang Admin{% endblock %}
+{% block content %}
+<h1>⚙️ Настройки</h1>
+
+<form method="post" action="/settings">
+  {% for group_name, keys in groups %}
+  <div class="card">
+    <h2 style="margin-top:0">{{ group_name }}</h2>
+    {% for key in keys %}
+      <label>{{ labels.get(key, key) }}</label>
+      {% if key in text_keys %}
+        <textarea name="{{ key }}" style="min-height:160px">{{ values.get(key, '') }}</textarea>
+      {% else %}
+        <input name="{{ key }}" value="{{ values.get(key, '') }}">
+      {% endif %}
+    {% endfor %}
+  </div>
+  {% endfor %}
+  <button class="btn" type="submit">💾 Сохранить всё</button>
+</form>
+{% endblock %}
