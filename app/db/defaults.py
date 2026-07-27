@@ -21,6 +21,18 @@ DEFAULT_SETTINGS = {
     "daily_bonus_base_tokens": "10",
     "daily_bonus_streak_step": "5",
     "daily_bonus_max_tokens": "50",
+    "reminder_a_enabled": "1",
+    "reminder_a_hour_utc": "12",
+    "reminder_a_emoji_id": "5244927694377852924",
+    "reminder_a_text": "Не забудь забрать свой ежедневный бонус!",
+    "reminder_a_last_sent_date": "",
+    "reminder_b_enabled": "1",
+    "reminder_b_window_start_hour_utc": "17",
+    "reminder_b_window_end_hour_utc": "19",
+    "reminder_b_min_streak": "3",
+    "reminder_b_emoji_id": "5242576934222701334",
+    "reminder_b_text": "Твоя серия ежедневных бонусов совсем скоро сгорит!",
+    "reminder_b_last_sent_date": "",
     "start_text": (
         "🎴 <b>WWGang Cards</b>\n\n"
         "Собирай уникальные карточки участников WWGang! У каждой — своя редкость, роль, "

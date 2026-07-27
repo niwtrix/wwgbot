@@ -228,9 +228,13 @@ async def _profile_text(session: AsyncSession, user: User, name: str) -> str:
     remaining = seconds_until_ready(user, cooldown_minutes)
     cooldown_line = "✅ можно тянуть карту прямо сейчас" if remaining == 0 else f"⏳ через {fmt_seconds(remaining)}"
 
+    result = await session.execute(select(func.count()).select_from(User).where(User.tokens > user.tokens))
+    rank = result.scalar_one() + 1
+
     return (
         f"👤 <b>Профиль {name}</b>\n\n"
         f"💰 Токены: {user.tokens}\n"
+        f"🏆 Место в топе: #{rank}\n"
         f"🎴 Собрано уникальных: {unique_owned}/{total_cards}\n"
         f"📦 Всего карточек получено: {total_pulls}\n"
         f"🕒 Следующая карта: {cooldown_line}"

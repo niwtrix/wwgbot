@@ -6,6 +6,7 @@ from aiogram import Bot
 from app.bot_setup import create_bot_and_dispatcher, set_bot_commands
 from app.config import PROXY_URL
 from app.db.engine import init_db
+from app.services.bonus_reminders import bonus_reminder_loop
 from app.services.health_report import health_report_loop
 
 KEEP_WARM_INTERVAL_SECONDS = 15
@@ -39,6 +40,7 @@ async def main() -> None:
     if PROXY_URL:
         asyncio.create_task(keep_warm(bot))
     asyncio.create_task(health_report_loop(bot))
+    asyncio.create_task(bonus_reminder_loop(bot))
 
     await dp.start_polling(bot)
 

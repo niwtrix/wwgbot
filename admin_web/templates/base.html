@@ -16,6 +16,7 @@
         {% if user and (user.is_owner or user.perms.can_rarities) %}<a href="/rarities" class="{{ 'active' if active == 'rarities' else '' }}">🏷 Редкости</a>{% endif %}
         {% if user and (user.is_owner or user.perms.can_cases) %}<a href="/cases" class="{{ 'active' if active == 'cases' else '' }}">🎁 Кейсы</a>{% endif %}
         {% if user and (user.is_owner or user.perms.can_settings) %}<a href="/settings" class="{{ 'active' if active == 'settings' else '' }}">⚙️ Настройки</a>{% endif %}
+        {% if user and (user.is_owner or user.perms.can_settings) %}<a href="/reminders" class="{{ 'active' if active == 'reminders' else '' }}">🔔 Напоминания</a>{% endif %}
         {% if user and (user.is_owner or user.perms.can_users) %}<a href="/users" class="{{ 'active' if active == 'users' else '' }}">👥 Пользователи</a>{% endif %}
         {% if user and (user.is_owner or user.perms.can_log) %}<a href="/log" class="{{ 'active' if active == 'log' else '' }}">📜 Лог событий</a>{% endif %}
         {% if user and (user.is_owner or user.perms.can_analytics) %}<a href="/analytics" class="{{ 'active' if active == 'analytics' else '' }}">📈 Аналитика</a>{% endif %}

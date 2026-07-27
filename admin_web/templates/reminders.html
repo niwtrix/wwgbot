@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}Напоминания — WWGang Admin{% endblock %}
+{% block content %}
+<h1>🔔 Напоминания о бонусе</h1>
+
+{% if result %}<div class="flash flash-ok">{{ result }}</div>{% endif %}
+
+<form method="post" action="/reminders">
+  <div class="card">
+    <h2 style="margin-top:0">Напоминание A — «не забудь забрать бонус»</h2>
+    <p class="muted" style="margin:0 0 12px">
+      Отправляется пользователям, которые были активны вчера, но ещё не забрали сегодняшний бонус —
+      в фиксированный час после сброса серии (00:00 UTC).
+    </p>
+
+    <label style="display:flex; align-items:center; gap:8px;">
+      <input type="checkbox" name="reminder_a_enabled" style="width:auto" {{ 'checked' if values.get('reminder_a_enabled') == '1' else '' }}>
+      <span>Включено</span>
+    </label>
+
+    <div class="form-row">
+      <div>
+        <label>Час отправки (UTC, 0–23)</label>
+        <input name="reminder_a_hour_utc" type="number" min="0" max="23" value="{{ values.get('reminder_a_hour_utc', 12) }}">
+      </div>
+      <div>
+        <label>ID премиум-эмодзи</label>
+        <input name="reminder_a_emoji_id" value="{{ values.get('reminder_a_emoji_id', '') }}">
+      </div>
+    </div>
+
+    <label>Текст (жирным, /bonus добавится сам)</label>
+    <textarea name="reminder_a_text" style="min-height:60px">{{ values.get('reminder_a_text', '') }}</textarea>
+  </div>
+
+  <div class="card">
+    <h2 style="margin-top:0">Напоминание B — «серия скоро сгорит»</h2>
+    <p class="muted" style="margin:0 0 12px">
+      Отправляется в случайный момент внутри окна (обычно 5–7 часов до сброса серии) пользователям
+      с серией больше указанного порога, которые ещё не забрали сегодняшний бонус.
+    </p>
+
+    <label style="display:flex; align-items:center; gap:8px;">
+      <input type="checkbox" name="reminder_b_enabled" style="width:auto" {{ 'checked' if values.get('reminder_b_enabled') == '1' else '' }}>
+      <span>Включено</span>
+    </label>
+
+    <div class="form-row">
+      <div>
+        <label>Окно с (час UTC)</label>
+        <input name="reminder_b_window_start_hour_utc" type="number" min="0" max="23" value="{{ values.get('reminder_b_window_start_hour_utc', 17) }}">
+      </div>
+      <div>
+        <label>Окно до (час UTC)</label>
+        <input name="reminder_b_window_end_hour_utc" type="number" min="0" max="23" value="{{ values.get('reminder_b_window_end_hour_utc', 19) }}">
+      </div>
+      <div>
+        <label>Мин. серия (дней)</label>
+        <input name="reminder_b_min_streak" type="number" min="0" value="{{ values.get('reminder_b_min_streak', 3) }}">
+      </div>
+    </div>
+
+    <label>ID премиум-эмодзи</label>
+    <input name="reminder_b_emoji_id" value="{{ values.get('reminder_b_emoji_id', '') }}">
+
+    <label>Текст (жирным, /bonus добавится сам)</label>
+    <textarea name="reminder_b_text" style="min-height:60px">{{ values.get('reminder_b_text', '') }}</textarea>
+  </div>
+
+  <button class="btn" type="submit">💾 Сохранить</button>
+</form>
+
+<h2>Превью — отправить прямо сейчас конкретному аккаунту</h2>
+<div class="card" style="max-width:480px">
+<form method="post" action="/reminders/preview">
+  <label>Какое напоминание</label>
+  <select name="kind">
+    <option value="a">A — не забудь забрать бонус</option>
+    <option value="b">B — серия скоро сгорит</option>
+  </select>
+
+  <label>Юзернейм (без @, должен хотя бы раз писать боту)</label>
+  <input name="username" placeholder="niwtrix" required>
+
+  <div style="margin-top:16px">
+    <button class="btn btn-secondary" type="submit">📤 Отправить превью</button>
+  </div>
+</form>
+</div>
+{% endblock %}
