@@ -268,13 +268,27 @@ async def on_emoji_capture(message: Message, state: FSMContext) -> None:
 # ---------- Cards list / detail ----------
 
 
-@router.callback_query(F.data.startswith("adm:cards:"))
+@router.callback_query(F.data.startswith("adm:cardsf:"))
 async def cb_cards_list(callback: CallbackQuery, session: AsyncSession) -> None:
-    page = int(callback.data.split(":")[2])
-    cards = await list_all_cards(session)
+    _, _, page_raw, rarity_filter, status_filter = callback.data.split(":")
+    page = int(page_raw)
+
+    all_cards = await list_all_cards(session)
+    rarities = await list_rarities(session)
+
+    cards = all_cards
+    if rarity_filter != "all":
+        cards = [c for c in cards if c.rarity_id == rarity_filter]
+    if status_filter == "active":
+        cards = [c for c in cards if c.is_active]
+    elif status_filter == "inactive":
+        cards = [c for c in cards if not c.is_active]
+
     await _safe_delete(callback.message)
     await callback.message.answer(
-        f"📇 <b>Карточки участников</b> ({len(cards)} всего)", parse_mode="HTML", reply_markup=cards_list_kb(cards, page)
+        f"📇 <b>Карточки участников</b> ({len(cards)} из {len(all_cards)})",
+        parse_mode="HTML",
+        reply_markup=cards_list_kb(cards, page, rarities, rarity_filter, status_filter),
     )
     await callback.answer()
 
@@ -313,8 +327,9 @@ async def cb_card_delete_yes(callback: CallbackQuery, session: AsyncSession) -> 
         await session.commit()
     await _safe_delete(callback.message)
     cards = await list_all_cards(session)
+    rarities = await list_rarities(session)
     await callback.message.answer(
-        "🗑 Карточка удалена.", reply_markup=cards_list_kb(cards, 0)
+        "🗑 Карточка удалена.", reply_markup=cards_list_kb(cards, 0, rarities, "all", "all")
     )
     await callback.answer()
 
@@ -1220,6 +1235,29 @@ async def cb_stats(callback: CallbackQuery, session: AsyncSession) -> None:
     for r in rarities:
         c = (await session.execute(select(func.count()).select_from(Card).where(Card.rarity_id == r.id))).scalar_one()
         lines.append(f"{escape(r.emoji_fallback)} {escape(r.name)}: {c} карточек")
+
+    medals = ["🥇", "🥈", "🥉", "4.", "5."]
+
+    top_tokens = (await session.execute(select(User).order_by(User.tokens.desc()).limit(5))).scalars().all()
+    lines.append("\n🏆 Топ-5 по токенам:")
+    for i, u in enumerate(top_tokens):
+        name = escape(u.full_name) or (f"@{escape(u.username)}" if u.username else str(u.id))
+        lines.append(f"{medals[i]} {name} — {u.tokens} 🪙")
+
+    cards_subq = (
+        select(UserCard.user_id, func.sum(UserCard.count).label("total"))
+        .group_by(UserCard.user_id)
+        .order_by(func.sum(UserCard.count).desc())
+        .limit(5)
+        .subquery()
+    )
+    top_cards_rows = (
+        await session.execute(select(User, cards_subq.c.total).join(cards_subq, User.id == cards_subq.c.user_id).order_by(cards_subq.c.total.desc()))
+    ).all()
+    lines.append("\n🎴 Топ-5 по карточкам:")
+    for i, (u, total) in enumerate(top_cards_rows):
+        name = escape(u.full_name) or (f"@{escape(u.username)}" if u.username else str(u.id))
+        lines.append(f"{medals[i]} {name} — {total} 🎴")
 
     await callback.message.edit_text("\n".join(lines), parse_mode="HTML", reply_markup=back_to_main_kb())
     await callback.answer()

@@ -61,6 +61,20 @@ async def analytics_page(request: Request, session: AsyncSession = Depends(get_s
     top_result = await session.execute(select(User.full_name, User.username, User.tokens).order_by(User.tokens.desc()).limit(10))
     top_rows = top_result.all()
 
+    top_cards_subq = (
+        select(UserCard.user_id, func.sum(UserCard.count).label("total"))
+        .group_by(UserCard.user_id)
+        .order_by(func.sum(UserCard.count).desc())
+        .limit(10)
+        .subquery()
+    )
+    top_cards_result = await session.execute(
+        select(User.full_name, User.username, top_cards_subq.c.total)
+        .join(top_cards_subq, User.id == top_cards_subq.c.user_id)
+        .order_by(top_cards_subq.c.total.desc())
+    )
+    top_cards_rows = top_cards_result.all()
+
     return templates.TemplateResponse(
         "analytics.html",
         {
@@ -74,5 +88,7 @@ async def analytics_page(request: Request, session: AsyncSession = Depends(get_s
             "rarity_values_json": json.dumps([int(v) for _, _, v in rarity_rows]),
             "top_labels_json": json.dumps([full_name or (f"@{username}" if username else "?") for full_name, username, _ in top_rows]),
             "top_values_json": json.dumps([tokens for *_, tokens in top_rows]),
+            "top_cards_labels_json": json.dumps([full_name or (f"@{username}" if username else "?") for full_name, username, _ in top_cards_rows]),
+            "top_cards_values_json": json.dumps([int(total) for *_, total in top_cards_rows]),
         },
     )

@@ -14,7 +14,7 @@
   {% for u in users %}
   <tr>
     <td class="mono">{{ u.id }}</td>
-    <td>{{ u.full_name }}{% if u.username %} <span class="muted">@{{ u.username }}</span>{% endif %}</td>
+    <td><a href="/users/{{ u.id }}">{{ u.full_name }}{% if u.username %} <span class="muted">@{{ u.username }}</span>{% endif %}</a></td>
     <td>{{ u.tokens }} 🪙</td>
     <td>{{ u.daily_streak }} 🔥</td>
     <td>{{ '🙈' if u.hide_from_top else '—' }}</td>

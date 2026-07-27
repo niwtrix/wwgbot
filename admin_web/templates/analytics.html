@@ -9,9 +9,15 @@
   <div class="card"><h2 style="margin-top:0">Карточки по редкости</h2><canvas id="chartRarity" height="200"></canvas></div>
 </div>
 
-<div class="card">
-  <h2 style="margin-top:0">Топ-10 по токенам</h2>
-  <canvas id="chartTop" height="100"></canvas>
+<div class="grid" style="grid-template-columns: 1fr 1fr;">
+  <div class="card">
+    <h2 style="margin-top:0">Топ-10 по токенам</h2>
+    <canvas id="chartTop" height="140"></canvas>
+  </div>
+  <div class="card">
+    <h2 style="margin-top:0">Топ-10 по карточкам</h2>
+    <canvas id="chartTopCards" height="140"></canvas>
+  </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
@@ -41,6 +47,12 @@ new Chart(document.getElementById('chartRarity'), {
 new Chart(document.getElementById('chartTop'), {
   type: 'bar',
   data: { labels: {{ top_labels_json|safe }}, datasets: [{ label: 'Токены', data: {{ top_values_json|safe }}, backgroundColor: '#22c55e' }] },
+  options: { indexAxis: 'y', plugins: { legend: { display: false } } }
+});
+
+new Chart(document.getElementById('chartTopCards'), {
+  type: 'bar',
+  data: { labels: {{ top_cards_labels_json|safe }}, datasets: [{ label: 'Карточки', data: {{ top_cards_values_json|safe }}, backgroundColor: '#6c8cff' }] },
   options: { indexAxis: 'y', plugins: { legend: { display: false } } }
 });
 </script>

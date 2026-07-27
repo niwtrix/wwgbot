@@ -8,7 +8,7 @@ CARDS_PAGE_SIZE = 8
 
 def admin_main_menu() -> InlineKeyboardMarkup:
     rows = [
-        [InlineKeyboardButton(text="📇 Карточки участников", callback_data="adm:cards:0")],
+        [InlineKeyboardButton(text="📇 Карточки участников", callback_data="adm:cardsf:0:all:all")],
         [InlineKeyboardButton(text="🏷 Редкости", callback_data="adm:rarities")],
         [InlineKeyboardButton(text="⚙️ Настройки", callback_data="adm:settings")],
         [InlineKeyboardButton(text="📊 Статистика", callback_data="adm:stats")],
@@ -28,12 +28,40 @@ def back_to_main_kb() -> InlineKeyboardMarkup:
     )
 
 
-def cards_list_kb(cards: list[Card], page: int) -> InlineKeyboardMarkup:
+def cards_list_kb(
+    cards: list[Card],
+    page: int,
+    rarities: list[Rarity] | None = None,
+    rarity_filter: str = "all",
+    status_filter: str = "all",
+) -> InlineKeyboardMarkup:
     total_pages = max(1, (len(cards) + CARDS_PAGE_SIZE - 1) // CARDS_PAGE_SIZE)
     page = max(0, min(page, total_pages - 1))
     chunk = cards[page * CARDS_PAGE_SIZE : (page + 1) * CARDS_PAGE_SIZE]
 
     rows = []
+
+    if rarities is not None:
+        rarity_buttons = [
+            InlineKeyboardButton(
+                text=("✅ Все" if rarity_filter == "all" else "Все"),
+                callback_data=f"adm:cardsf:0:all:{status_filter}",
+            )
+        ]
+        for r in rarities:
+            label = f"✅ {r.emoji_fallback}" if rarity_filter == r.id else r.emoji_fallback
+            rarity_buttons.append(
+                InlineKeyboardButton(text=label, callback_data=f"adm:cardsf:0:{r.id}:{status_filter}")
+            )
+        for i in range(0, len(rarity_buttons), 4):
+            rows.append(rarity_buttons[i : i + 4])
+
+        def _status_btn(value: str, label: str) -> InlineKeyboardButton:
+            text = f"✅ {label}" if status_filter == value else label
+            return InlineKeyboardButton(text=text, callback_data=f"adm:cardsf:0:{rarity_filter}:{value}")
+
+        rows.append([_status_btn("all", "Все"), _status_btn("active", "Активные"), _status_btn("inactive", "Выкл.")])
+
     for card in chunk:
         status = "" if card.is_active else "🚫 "
         label = f"{status}{card.rarity.emoji_fallback} {card.name}"
@@ -41,10 +69,10 @@ def cards_list_kb(cards: list[Card], page: int) -> InlineKeyboardMarkup:
 
     nav = []
     if page > 0:
-        nav.append(InlineKeyboardButton(text="⬅️", callback_data=f"adm:cards:{page - 1}"))
+        nav.append(InlineKeyboardButton(text="⬅️", callback_data=f"adm:cardsf:{page - 1}:{rarity_filter}:{status_filter}"))
     nav.append(InlineKeyboardButton(text=f"{page + 1}/{total_pages}", callback_data="noop"))
     if page < total_pages - 1:
-        nav.append(InlineKeyboardButton(text="➡️", callback_data=f"adm:cards:{page + 1}"))
+        nav.append(InlineKeyboardButton(text="➡️", callback_data=f"adm:cardsf:{page + 1}:{rarity_filter}:{status_filter}"))
     if nav:
         rows.append(nav)
 
@@ -66,7 +94,7 @@ def card_edit_menu_kb(card: Card) -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text="🏷 Изменить редкость", callback_data=f"adm:crarity:{card.id}")],
         [InlineKeyboardButton(text=toggle_text, callback_data=f"adm:ctoggle:{card.id}")],
         [InlineKeyboardButton(text="🗑 Удалить карточку", callback_data=f"adm:cdelask:{card.id}")],
-        [InlineKeyboardButton(text="🔙 К списку карточек", callback_data="adm:cards:0")],
+        [InlineKeyboardButton(text="🔙 К списку карточек", callback_data="adm:cardsf:0:all:all")],
     ]
     return InlineKeyboardMarkup(inline_keyboard=rows)
 

@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}{{ profile.full_name or profile.id }} — WWGang Admin{% endblock %}
+{% block content %}
+<div class="toolbar">
+  <h1 style="margin:0">👤 {{ profile.full_name }}{% if profile.username %} <span class="muted">@{{ profile.username }}</span>{% endif %}</h1>
+  <a class="btn btn-secondary" href="/users">🔙 К списку</a>
+</div>
+
+<div class="grid grid-4">
+  <div class="card"><div class="stat-label">Токены</div><div class="stat-value">{{ profile.tokens }} 🪙</div></div>
+  <div class="card"><div class="stat-label">Место по токенам</div><div class="stat-value">#{{ rank_tokens }}</div></div>
+  <div class="card"><div class="stat-label">Место по карточкам</div><div class="stat-value">#{{ rank_cards }}</div></div>
+  <div class="card"><div class="stat-label">Серия бонусов</div><div class="stat-value">{{ profile.daily_streak }} 🔥</div></div>
+</div>
+
+<div class="card">
+  <h2 style="margin-top:0">Профиль</h2>
+  <table>
+    <tr><td class="muted">Telegram ID</td><td class="mono">{{ profile.id }}</td></tr>
+    <tr><td class="muted">Зарегистрирован</td><td>{{ profile.joined_at.strftime('%d.%m.%Y %H:%M') }} UTC</td></tr>
+    <tr><td class="muted">Последний пулл</td><td>{{ profile.last_pull_at.strftime('%d.%m.%Y %H:%M') if profile.last_pull_at else '—' }}{% if profile.last_pull_at %} UTC{% endif %}</td></tr>
+    <tr><td class="muted">Последний бонус</td><td>{{ profile.last_bonus_at.strftime('%d.%m.%Y %H:%M') if profile.last_bonus_at else '—' }}{% if profile.last_bonus_at %} UTC{% endif %}</td></tr>
+    <tr><td class="muted">Всего карточек получено</td><td>{{ total_pulls }} (уникальных: {{ owned_cards|length }})</td></tr>
+    <tr><td class="muted">Скрыт из /top</td><td>{{ 'да 🙈' if profile.hide_from_top else 'нет' }}</td></tr>
+    <tr><td class="muted">Пригласил(а)</td><td>{% if referred_by %}<a href="/users/{{ referred_by.id }}">{{ referred_by.full_name or referred_by.username }}</a>{% else %}—{% endif %}</td></tr>
+    <tr><td class="muted">Сам пригласил</td><td>{{ referral_count }} чел.</td></tr>
+  </table>
+</div>
+
+<div class="card">
+  <h2 style="margin-top:0">Начислить/списать токены</h2>
+  <form method="post" action="/users/{{ profile.id }}/grant" class="form-row">
+    <input type="hidden" name="next" value="/users/{{ profile.id }}">
+    <div><input type="number" name="amount" placeholder="±токены"></div>
+    <div style="flex:0"><button class="btn" type="submit">Применить</button></div>
+  </form>
+</div>
+
+<h2>Коллекция ({{ owned_cards|length }} уникальных)</h2>
+<div class="card">
+{% if not owned_cards %}
+  <p class="muted">Пока пусто.</p>
+{% else %}
+<table>
+  <tr><th>Карточка</th><th>Редкость</th><th>Копий</th><th>Получена</th></tr>
+  {% for uc in owned_cards %}
+  <tr>
+    <td>{{ uc.card.name }}</td>
+    <td>{{ uc.card.rarity.emoji_fallback }} {{ uc.card.rarity.name }}</td>
+    <td>×{{ uc.count }}</td>
+    <td>{{ uc.last_obtained_at.strftime('%d.%m.%Y') }}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% endif %}
+</div>
+
+<h2>Последняя активность</h2>
+<div class="card">
+{% if not recent_events %}
+  <p class="muted">Пока пусто.</p>
+{% else %}
+<table>
+  {% for e in recent_events %}
+  <tr><td class="mono" style="white-space:nowrap">{{ e.created_at.strftime('%d.%m %H:%M') }}</td><td>{{ e.detail }}</td></tr>
+  {% endfor %}
+</table>
+{% endif %}
+</div>
+{% endblock %}

@@ -229,14 +229,23 @@ async def _profile_text(session: AsyncSession, user: User, name: str) -> str:
     cooldown_line = "✅ можно тянуть карту прямо сейчас" if remaining == 0 else f"⏳ через {fmt_seconds(remaining)}"
 
     result = await session.execute(select(func.count()).select_from(User).where(User.tokens > user.tokens))
-    rank = result.scalar_one() + 1
+    rank_tokens = result.scalar_one() + 1
+
+    pulls_subq = (
+        select(UserCard.user_id, func.sum(UserCard.count).label("total"))
+        .group_by(UserCard.user_id)
+        .subquery()
+    )
+    result = await session.execute(select(func.count()).select_from(pulls_subq).where(pulls_subq.c.total > total_pulls))
+    rank_cards = result.scalar_one() + 1
 
     return (
         f"👤 <b>Профиль {name}</b>\n\n"
         f"💰 Токены: {user.tokens}\n"
-        f"🏆 Место в топе: #{rank}\n"
         f"🎴 Собрано уникальных: {unique_owned}/{total_cards}\n"
-        f"📦 Всего карточек получено: {total_pulls}\n"
+        f"📦 Всего карточек получено: {total_pulls}\n\n"
+        f"🏆 Место в топе по карточкам: #{rank_cards}\n"
+        f"🏆 Место в топе по токенам: #{rank_tokens}\n\n"
         f"🕒 Следующая карта: {cooldown_line}"
     )
 
