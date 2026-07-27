@@ -139,6 +139,27 @@ class ActivityLog(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
+class AdminAccount(Base):
+    """Web admin panel login — separate from the Telegram-side users/owners."""
+
+    __tablename__ = "admin_accounts"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    username: Mapped[str] = mapped_column(String(64), unique=True)
+    password_hash: Mapped[str] = mapped_column(String(64))
+    password_salt: Mapped[str] = mapped_column(String(32))
+    is_owner: Mapped[bool] = mapped_column(Boolean, default=False)
+    can_cards: Mapped[bool] = mapped_column(Boolean, default=True)
+    can_rarities: Mapped[bool] = mapped_column(Boolean, default=True)
+    can_cases: Mapped[bool] = mapped_column(Boolean, default=True)
+    can_settings: Mapped[bool] = mapped_column(Boolean, default=False)
+    can_users: Mapped[bool] = mapped_column(Boolean, default=False)
+    can_log: Mapped[bool] = mapped_column(Boolean, default=True)
+    can_analytics: Mapped[bool] = mapped_column(Boolean, default=True)
+    can_broadcast: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
 class TradeItem(Base):
     __tablename__ = "trade_items"
 

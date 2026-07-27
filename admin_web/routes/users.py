@@ -4,7 +4,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from admin_web.auth import require_auth
+from admin_web.auth import current_user, require_perm
 from admin_web.config import TEMPLATES_DIR
 from admin_web.deps import get_session
 from app.db.activity_repo import log_event
@@ -19,7 +19,7 @@ PAGE_SIZE = 25
 
 @router.get("/users")
 async def users_list(request: Request, q: str = "", page: int = 0, session: AsyncSession = Depends(get_session)):
-    if (resp := require_auth(request)) is not None:
+    if (resp := require_perm(request, "can_users")) is not None:
         return resp
 
     query = select(User).order_by(User.tokens.desc())
@@ -41,6 +41,7 @@ async def users_list(request: Request, q: str = "", page: int = 0, session: Asyn
         "users.html",
         {
             "request": request,
+            "user": current_user(request),
             "active": "users",
             "users": users,
             "q": q,
@@ -53,7 +54,7 @@ async def users_list(request: Request, q: str = "", page: int = 0, session: Asyn
 
 @router.post("/users/{user_id}/grant")
 async def grant_tokens(user_id: int, request: Request, session: AsyncSession = Depends(get_session)):
-    if (resp := require_auth(request)) is not None:
+    if (resp := require_perm(request, "can_users")) is not None:
         return resp
     form = await request.form()
     try:

@@ -6,7 +6,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from admin_web.auth import require_auth
+from admin_web.auth import current_user, require_perm
 from admin_web.config import TEMPLATES_DIR
 from admin_web.deps import get_session
 from app.config import BOT_TOKEN
@@ -20,16 +20,17 @@ router = APIRouter()
 
 @router.get("/broadcast")
 async def broadcast_form(request: Request):
-    if (resp := require_auth(request)) is not None:
+    if (resp := require_perm(request, "can_broadcast")) is not None:
         return resp
     return templates.TemplateResponse(
-        "broadcast.html", {"request": request, "active": "broadcast", "result": None}
+        "broadcast.html", {"request": request,
+            "user": current_user(request), "active": "broadcast", "result": None}
     )
 
 
 @router.post("/broadcast")
 async def broadcast_submit(request: Request, session: AsyncSession = Depends(get_session)):
-    if (resp := require_auth(request)) is not None:
+    if (resp := require_perm(request, "can_broadcast")) is not None:
         return resp
     form = await request.form()
     text = str(form.get("text", "")).strip()
@@ -37,7 +38,8 @@ async def broadcast_submit(request: Request, session: AsyncSession = Depends(get
 
     if not text:
         return templates.TemplateResponse(
-            "broadcast.html", {"request": request, "active": "broadcast", "result": "Пустое сообщение — не отправлено."}
+            "broadcast.html", {"request": request,
+            "user": current_user(request), "active": "broadcast", "result": "Пустое сообщение — не отправлено."}
         )
 
     result = await session.execute(select(User.id))
@@ -61,5 +63,6 @@ async def broadcast_submit(request: Request, session: AsyncSession = Depends(get
 
     return templates.TemplateResponse(
         "broadcast.html",
-        {"request": request, "active": "broadcast", "result": f"Доставлено: {sent}, не удалось: {failed}"},
+        {"request": request,
+            "user": current_user(request), "active": "broadcast", "result": f"Доставлено: {sent}, не удалось: {failed}"},
     )

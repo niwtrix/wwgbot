@@ -3,7 +3,7 @@ from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from admin_web.auth import require_auth
+from admin_web.auth import current_user, require_perm
 from admin_web.config import TEMPLATES_DIR
 from admin_web.deps import get_session
 from app.db.settings_repo import all_settings, set_setting
@@ -43,13 +43,14 @@ LABELS = {
 
 @router.get("/settings")
 async def settings_page(request: Request, session: AsyncSession = Depends(get_session)):
-    if (resp := require_auth(request)) is not None:
+    if (resp := require_perm(request, "can_settings")) is not None:
         return resp
     values = await all_settings(session)
     return templates.TemplateResponse(
         "settings.html",
         {
             "request": request,
+            "user": current_user(request),
             "active": "settings",
             "values": values,
             "groups": FIELD_GROUPS,
@@ -61,7 +62,7 @@ async def settings_page(request: Request, session: AsyncSession = Depends(get_se
 
 @router.post("/settings")
 async def settings_submit(request: Request, session: AsyncSession = Depends(get_session)):
-    if (resp := require_auth(request)) is not None:
+    if (resp := require_perm(request, "can_settings")) is not None:
         return resp
     form = await request.form()
     for _, keys in FIELD_GROUPS:

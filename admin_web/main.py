@@ -4,7 +4,7 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from admin_web import auth
 from admin_web.config import ADMIN_SESSION_SECRET, STATIC_DIR
-from admin_web.routes import analytics, broadcast, cards, cases, dashboard, log, rarities, settings, users
+from admin_web.routes import accounts, analytics, broadcast, cards, cases, dashboard, log, rarities, settings, users
 from app.config import CARDS_DIR
 
 app = FastAPI(title="WWGang Admin")
@@ -14,6 +14,7 @@ CARDS_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/card-images", StaticFiles(directory=str(CARDS_DIR)), name="card-images")
 
 app.include_router(auth.router)
+app.include_router(accounts.router)
 app.include_router(dashboard.router)
 app.include_router(cards.router)
 app.include_router(rarities.router)

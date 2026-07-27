@@ -12,16 +12,20 @@
       <div class="brand">🎴 WWGang Admin</div>
       <nav>
         <a href="/" class="{{ 'active' if active == 'dashboard' else '' }}">📊 Дашборд</a>
-        <a href="/cards" class="{{ 'active' if active == 'cards' else '' }}">📇 Карточки</a>
-        <a href="/rarities" class="{{ 'active' if active == 'rarities' else '' }}">🏷 Редкости</a>
-        <a href="/cases" class="{{ 'active' if active == 'cases' else '' }}">🎁 Кейсы</a>
-        <a href="/settings" class="{{ 'active' if active == 'settings' else '' }}">⚙️ Настройки</a>
-        <a href="/users" class="{{ 'active' if active == 'users' else '' }}">👥 Пользователи</a>
-        <a href="/log" class="{{ 'active' if active == 'log' else '' }}">📜 Лог событий</a>
-        <a href="/analytics" class="{{ 'active' if active == 'analytics' else '' }}">📈 Аналитика</a>
-        <a href="/broadcast" class="{{ 'active' if active == 'broadcast' else '' }}">📢 Рассылка</a>
+        {% if user and (user.is_owner or user.perms.can_cards) %}<a href="/cards" class="{{ 'active' if active == 'cards' else '' }}">📇 Карточки</a>{% endif %}
+        {% if user and (user.is_owner or user.perms.can_rarities) %}<a href="/rarities" class="{{ 'active' if active == 'rarities' else '' }}">🏷 Редкости</a>{% endif %}
+        {% if user and (user.is_owner or user.perms.can_cases) %}<a href="/cases" class="{{ 'active' if active == 'cases' else '' }}">🎁 Кейсы</a>{% endif %}
+        {% if user and (user.is_owner or user.perms.can_settings) %}<a href="/settings" class="{{ 'active' if active == 'settings' else '' }}">⚙️ Настройки</a>{% endif %}
+        {% if user and (user.is_owner or user.perms.can_users) %}<a href="/users" class="{{ 'active' if active == 'users' else '' }}">👥 Пользователи</a>{% endif %}
+        {% if user and (user.is_owner or user.perms.can_log) %}<a href="/log" class="{{ 'active' if active == 'log' else '' }}">📜 Лог событий</a>{% endif %}
+        {% if user and (user.is_owner or user.perms.can_analytics) %}<a href="/analytics" class="{{ 'active' if active == 'analytics' else '' }}">📈 Аналитика</a>{% endif %}
+        {% if user and (user.is_owner or user.perms.can_broadcast) %}<a href="/broadcast" class="{{ 'active' if active == 'broadcast' else '' }}">📢 Рассылка</a>{% endif %}
+        {% if user and user.is_owner %}<a href="/accounts" class="{{ 'active' if active == 'accounts' else '' }}">👤 Аккаунты</a>{% endif %}
       </nav>
-      <div class="logout"><a href="/logout">🚪 Выйти</a></div>
+      <div class="logout">
+        {% if user %}<div class="muted" style="padding:0 20px 8px; font-size:12px">{{ user.username }}{% if user.is_owner %} · владелец{% endif %}</div>{% endif %}
+        <a href="/logout">🚪 Выйти</a>
+      </div>
     </div>
     <div class="main">
       {% if flash %}

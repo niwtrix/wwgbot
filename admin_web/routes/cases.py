@@ -6,7 +6,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from admin_web.auth import require_auth
+from admin_web.auth import current_user, require_perm
 from admin_web.config import TEMPLATES_DIR
 from admin_web.deps import get_session
 from app.db.cards_repo import list_rarities
@@ -20,24 +20,26 @@ router = APIRouter()
 
 @router.get("/cases")
 async def cases_list(request: Request, session: AsyncSession = Depends(get_session)):
-    if (resp := require_auth(request)) is not None:
+    if (resp := require_perm(request, "can_cases")) is not None:
         return resp
     cases = await list_cases(session)
-    return templates.TemplateResponse("cases.html", {"request": request, "active": "cases", "cases": cases})
+    return templates.TemplateResponse("cases.html", {"request": request,
+            "user": current_user(request), "active": "cases", "cases": cases})
 
 
 @router.get("/cases/new")
 async def case_new_form(request: Request):
-    if (resp := require_auth(request)) is not None:
+    if (resp := require_perm(request, "can_cases")) is not None:
         return resp
     return templates.TemplateResponse(
-        "case_edit.html", {"request": request, "active": "cases", "case": None, "rarities": []}
+        "case_edit.html", {"request": request,
+            "user": current_user(request), "active": "cases", "case": None, "rarities": []}
     )
 
 
 @router.post("/cases/new")
 async def case_new_submit(request: Request, session: AsyncSession = Depends(get_session)):
-    if (resp := require_auth(request)) is not None:
+    if (resp := require_perm(request, "can_cases")) is not None:
         return resp
     form = await request.form()
     name = str(form.get("name", "")).strip()
@@ -68,7 +70,7 @@ async def case_new_submit(request: Request, session: AsyncSession = Depends(get_
 
 @router.get("/cases/{case_id}/edit")
 async def case_edit_form(case_id: int, request: Request, session: AsyncSession = Depends(get_session)):
-    if (resp := require_auth(request)) is not None:
+    if (resp := require_perm(request, "can_cases")) is not None:
         return resp
     case = await get_case(session, case_id)
     if case is None:
@@ -77,13 +79,14 @@ async def case_edit_form(case_id: int, request: Request, session: AsyncSession =
     odds_by_rarity = {o.rarity_id: o.weight for o in case.odds}
     return templates.TemplateResponse(
         "case_edit.html",
-        {"request": request, "active": "cases", "case": case, "rarities": rarities, "odds_by_rarity": odds_by_rarity},
+        {"request": request,
+            "user": current_user(request), "active": "cases", "case": case, "rarities": rarities, "odds_by_rarity": odds_by_rarity},
     )
 
 
 @router.post("/cases/{case_id}/edit")
 async def case_edit_submit(case_id: int, request: Request, session: AsyncSession = Depends(get_session)):
-    if (resp := require_auth(request)) is not None:
+    if (resp := require_perm(request, "can_cases")) is not None:
         return resp
     case = await session.get(Case, case_id)
     if case is None:
@@ -107,7 +110,7 @@ async def case_edit_submit(case_id: int, request: Request, session: AsyncSession
 
 @router.post("/cases/{case_id}/delete")
 async def case_delete(case_id: int, request: Request, session: AsyncSession = Depends(get_session)):
-    if (resp := require_auth(request)) is not None:
+    if (resp := require_perm(request, "can_cases")) is not None:
         return resp
     case = await session.get(Case, case_id)
     if case is not None:

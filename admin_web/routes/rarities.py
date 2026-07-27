@@ -6,7 +6,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from admin_web.auth import require_auth
+from admin_web.auth import current_user, require_perm
 from admin_web.config import TEMPLATES_DIR
 from admin_web.deps import get_session
 from app.db.cards_repo import list_rarities
@@ -19,7 +19,7 @@ router = APIRouter()
 
 @router.get("/rarities")
 async def rarities_list(request: Request, session: AsyncSession = Depends(get_session)):
-    if (resp := require_auth(request)) is not None:
+    if (resp := require_perm(request, "can_rarities")) is not None:
         return resp
     rarities = await list_rarities(session)
     counts = {}
@@ -28,20 +28,22 @@ async def rarities_list(request: Request, session: AsyncSession = Depends(get_se
             await session.execute(select(func.count()).select_from(Card).where(Card.rarity_id == r.id))
         ).scalar_one()
     return templates.TemplateResponse(
-        "rarities.html", {"request": request, "active": "rarities", "rarities": rarities, "counts": counts}
+        "rarities.html", {"request": request,
+            "user": current_user(request), "active": "rarities", "rarities": rarities, "counts": counts}
     )
 
 
 @router.get("/rarities/new")
 async def rarity_new_form(request: Request):
-    if (resp := require_auth(request)) is not None:
+    if (resp := require_perm(request, "can_rarities")) is not None:
         return resp
-    return templates.TemplateResponse("rarity_edit.html", {"request": request, "active": "rarities", "rarity": None})
+    return templates.TemplateResponse("rarity_edit.html", {"request": request,
+            "user": current_user(request), "active": "rarities", "rarity": None})
 
 
 @router.post("/rarities/new")
 async def rarity_new_submit(request: Request, session: AsyncSession = Depends(get_session)):
-    if (resp := require_auth(request)) is not None:
+    if (resp := require_perm(request, "can_rarities")) is not None:
         return resp
     form = await request.form()
     name = str(form.get("name", "")).strip()
@@ -72,17 +74,18 @@ async def rarity_new_submit(request: Request, session: AsyncSession = Depends(ge
 
 @router.get("/rarities/{rarity_id}/edit")
 async def rarity_edit_form(rarity_id: str, request: Request, session: AsyncSession = Depends(get_session)):
-    if (resp := require_auth(request)) is not None:
+    if (resp := require_perm(request, "can_rarities")) is not None:
         return resp
     rarity = await session.get(Rarity, rarity_id)
     if rarity is None:
         return RedirectResponse(url="/rarities", status_code=303)
-    return templates.TemplateResponse("rarity_edit.html", {"request": request, "active": "rarities", "rarity": rarity})
+    return templates.TemplateResponse("rarity_edit.html", {"request": request,
+            "user": current_user(request), "active": "rarities", "rarity": rarity})
 
 
 @router.post("/rarities/{rarity_id}/edit")
 async def rarity_edit_submit(rarity_id: str, request: Request, session: AsyncSession = Depends(get_session)):
-    if (resp := require_auth(request)) is not None:
+    if (resp := require_perm(request, "can_rarities")) is not None:
         return resp
     rarity = await session.get(Rarity, rarity_id)
     if rarity is None:
@@ -101,7 +104,7 @@ async def rarity_edit_submit(rarity_id: str, request: Request, session: AsyncSes
 
 @router.post("/rarities/{rarity_id}/delete")
 async def rarity_delete(rarity_id: str, request: Request, session: AsyncSession = Depends(get_session)):
-    if (resp := require_auth(request)) is not None:
+    if (resp := require_perm(request, "can_rarities")) is not None:
         return resp
     count = (
         await session.execute(select(func.count()).select_from(Card).where(Card.rarity_id == rarity_id))

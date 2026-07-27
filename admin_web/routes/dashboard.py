@@ -3,7 +3,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from admin_web.auth import require_auth
+from admin_web.auth import current_user, require_auth
 from admin_web.config import TEMPLATES_DIR
 from admin_web.deps import get_session
 from admin_web.monitor import recent_logs, service_status, system_stats
@@ -37,6 +37,7 @@ async def dashboard(request: Request, session: AsyncSession = Depends(get_sessio
         "dashboard.html",
         {
             "request": request,
+            "user": current_user(request),
             "active": "dashboard",
             "users_count": users_count,
             "cards_count": cards_count,

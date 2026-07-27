@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Аккаунты — WWGang Admin{% endblock %}
+{% block content %}
+<div class="toolbar">
+  <h1 style="margin:0">👤 Аккаунты панели</h1>
+  <a class="btn" href="/accounts/new">➕ Новый аккаунт</a>
+</div>
+
+<div class="card">
+<table>
+  <tr><th>Логин</th><th>Роль</th><th>Доступы</th><th>Действия</th></tr>
+  {% for a in accounts %}
+  <tr>
+    <td>{{ a.username }}</td>
+    <td>{% if a.is_owner %}<span class="pill pill-ok">владелец</span>{% else %}<span class="pill pill-muted">ограниченный</span>{% endif %}</td>
+    <td>
+      {% if a.is_owner %}
+        всё
+      {% else %}
+        {% for key in perm_keys %}{% if a[key] %}{{ perm_labels[key] }}{% if not loop.last %}, {% endif %}{% endif %}{% endfor %}
+      {% endif %}
+    </td>
+    <td>
+      <a class="btn btn-sm btn-secondary" href="/accounts/{{ a.id }}/edit">✏️</a>
+      {% if not a.is_owner %}
+      <form method="post" action="/accounts/{{ a.id }}/delete" style="display:inline" onsubmit="return confirm('Удалить аккаунт «{{ a.username }}»?');">
+        <button class="btn btn-sm btn-danger" type="submit">🗑</button>
+      </form>
+      {% endif %}
+    </td>
+  </tr>
+  {% endfor %}
+</table>
+</div>
+{% endblock %}

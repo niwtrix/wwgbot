@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Новый аккаунт' if not account else account.username }} — WWGang Admin{% endblock %}
+{% block content %}
+<h1>{{ '➕ Новый аккаунт' if not account else '✏️ ' + account.username }}</h1>
+
+{% if error %}<div class="flash flash-err">{{ error }}</div>{% endif %}
+
+<div class="card" style="max-width:480px">
+<form method="post" action="{{ '/accounts/new' if not account else '/accounts/' + account.id|string + '/edit' }}">
+  {% if not account %}
+  <label>Логин</label>
+  <input name="username" required>
+  {% endif %}
+
+  <label>{{ 'Новый пароль' if account else 'Пароль' }}</label>
+  <input type="password" name="password" {{ '' if account else 'required' }} minlength="6" placeholder="{{ 'оставь пустым, если не меняешь' if account else '' }}">
+
+  {% if account and account.is_owner %}
+    <p class="muted" style="margin-top:16px">Это аккаунт владельца — у него полный доступ ко всему, права не ограничиваются.</p>
+  {% else %}
+    <h2>Доступ к разделам</h2>
+    {% for key in perm_keys %}
+    <label style="display:flex; align-items:center; gap:8px;">
+      <input type="checkbox" name="{{ key }}" style="width:auto" {{ 'checked' if (not account and key in ['can_cards','can_rarities','can_cases','can_log','can_analytics']) or (account and account[key]) else '' }}>
+      <span>{{ perm_labels[key] }}</span>
+    </label>
+    {% endfor %}
+  {% endif %}
+
+  <div style="margin-top:20px; display:flex; gap:10px;">
+    <button class="btn" type="submit">💾 Сохранить</button>
+    <a class="btn btn-secondary" href="/accounts">Отмена</a>
+  </div>
+</form>
+</div>
+{% endblock %}

@@ -6,7 +6,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from admin_web.auth import require_auth
+from admin_web.auth import current_user, require_perm
 from admin_web.config import TEMPLATES_DIR
 from admin_web.deps import get_session
 from app.db.models import ActivityLog, Card, Rarity, User, UserCard
@@ -20,7 +20,7 @@ DAYS_BACK = 14
 
 @router.get("/analytics")
 async def analytics_page(request: Request, session: AsyncSession = Depends(get_session)):
-    if (resp := require_auth(request)) is not None:
+    if (resp := require_perm(request, "can_analytics")) is not None:
         return resp
 
     since = datetime.now(timezone.utc) - timedelta(days=DAYS_BACK)
@@ -65,6 +65,7 @@ async def analytics_page(request: Request, session: AsyncSession = Depends(get_s
         "analytics.html",
         {
             "request": request,
+            "user": current_user(request),
             "active": "analytics",
             "days_json": json.dumps([d[5:] for d in days]),
             "pulls_json": json.dumps(pulls_series),

@@ -12,8 +12,10 @@
       <h1>🎴 WWGang Admin</h1>
       {% if error %}<div class="flash flash-err">{{ error }}</div>{% endif %}
       <form method="post" action="/login">
+        <label>Логин</label>
+        <input name="username" autofocus required>
         <label>Пароль</label>
-        <input type="password" name="password" autofocus required>
+        <input type="password" name="password" required>
         <button class="btn" type="submit" style="width:100%; margin-top:16px;">Войти</button>
       </form>
     </div>

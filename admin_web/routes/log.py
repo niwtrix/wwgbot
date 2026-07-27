@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from admin_web.auth import require_auth
+from admin_web.auth import current_user, require_perm
 from admin_web.config import TEMPLATES_DIR
 from admin_web.deps import get_session
 from app.db.activity_repo import EVENT_LABELS, EVENT_TYPES, list_events
@@ -18,7 +18,7 @@ PAGE_SIZE = 30
 async def log_page(
     request: Request, type: str = "all", page: int = 0, session: AsyncSession = Depends(get_session)
 ):
-    if (resp := require_auth(request)) is not None:
+    if (resp := require_perm(request, "can_log")) is not None:
         return resp
     event_type = None if type == "all" else type
     events, total_pages = await list_events(session, event_type, page, PAGE_SIZE)
@@ -28,6 +28,7 @@ async def log_page(
         "log.html",
         {
             "request": request,
+            "user": current_user(request),
             "active": "log",
             "events": events,
             "event_types": EVENT_TYPES,
