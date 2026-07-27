@@ -11,7 +11,7 @@ from sqlalchemy.orm import selectinload
 
 from app.db.activity_repo import log_event
 from app.db.cards_repo import list_active_cards
-from app.db.cases_repo import get_case, list_active_cases
+from app.db.cases_repo import case_rarity_summary, get_case, list_active_cases
 from app.db.models import Card, User, UserCard
 from app.db.settings_repo import get_setting, get_setting_int
 from app.keyboards.user import buy_roll_kb, cases_list_kb, mycards_gallery_kb, mycards_kb, profile_kb, top_kb
@@ -181,7 +181,7 @@ async def cmd_cases(message: Message, session: AsyncSession) -> None:
 
     lines = ["🎁 <b>Доступные кейсы</b>\n", f"💰 Твои токены: {user.tokens}\n"]
     for c in cases:
-        rarities = ", ".join(escape(o.rarity.name) for o in c.odds if o.weight > 0)
+        rarities = ", ".join(escape(r.name) for r in case_rarity_summary(c))
         lines.append(f"<b>{escape(c.name)}</b> — {c.price_tokens} 🪙")
         if c.description:
             lines.append(escape(c.description))

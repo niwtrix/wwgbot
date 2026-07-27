@@ -45,7 +45,7 @@ class EditCaseField(StatesGroup):
 
 
 class EditCaseOdds(StatesGroup):
-    waiting_value = State()  # data: case_id, rarity_id
+    waiting_value = State()  # data: case_id, card_id, page, rarity_filter
 
 
 class BroadcastMessage(StatesGroup):

@@ -10,7 +10,7 @@ from sqlalchemy import select  # noqa: E402
 from app.config import BASE_DIR  # noqa: E402
 from app.db.defaults import DEFAULT_CASES, DEFAULT_RARITIES, DEFAULT_SETTINGS  # noqa: E402
 from app.db.engine import async_session, init_db  # noqa: E402
-from app.db.models import Card, Case, CaseOdds, Rarity, Setting  # noqa: E402
+from app.db.models import Card, Case, CaseCardOdds, Rarity, Setting  # noqa: E402
 
 CARDS_SEED_PATH = BASE_DIR / "data" / "cards_seed.json"
 
@@ -51,7 +51,9 @@ async def seed_cases() -> None:
             session.add(case)
             await session.flush()
             for rarity_id, weight in odds:
-                session.add(CaseOdds(case_id=case.id, rarity_id=rarity_id, weight=weight))
+                rarity_cards = (await session.execute(select(Card).where(Card.rarity_id == rarity_id))).scalars().all()
+                for card in rarity_cards:
+                    session.add(CaseCardOdds(case_id=case.id, card_id=card.id, weight=weight))
         await session.commit()
 
 
@@ -103,8 +105,8 @@ async def main() -> None:
     await init_db()
     await seed_rarities()
     await seed_settings()
-    await seed_cases()
     await seed_cards()
+    await seed_cases()
     print("Seeding complete.")
 
 

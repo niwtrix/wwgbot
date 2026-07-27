@@ -194,13 +194,48 @@ def confirm_delete_case_kb(case_id: int) -> InlineKeyboardMarkup:
     )
 
 
-def case_odds_kb(case: Case, rarities: list[Rarity]) -> InlineKeyboardMarkup:
-    odds_by_rarity = {o.rarity_id: o.weight for o in case.odds}
+def case_odds_kb(
+    case: Case,
+    cards: list[Card],
+    page: int,
+    rarity_filter: str,
+    rarities: list[Rarity],
+) -> InlineKeyboardMarkup:
+    odds_by_card = {o.card_id: o.weight for o in case.card_odds}
+
+    total_pages = max(1, (len(cards) + CARDS_PAGE_SIZE - 1) // CARDS_PAGE_SIZE)
+    page = max(0, min(page, total_pages - 1))
+    chunk = cards[page * CARDS_PAGE_SIZE : (page + 1) * CARDS_PAGE_SIZE]
+
     rows = []
+
+    rarity_row = [
+        InlineKeyboardButton(
+            text=("✅ Все" if rarity_filter == "all" else "Все"), callback_data=f"adm:caodds:{case.id}:0:all"
+        )
+    ]
     for r in rarities:
-        weight = odds_by_rarity.get(r.id)
-        label = f"{r.emoji_fallback} {r.name}: {weight:g}" if weight else f"{r.emoji_fallback} {r.name}: —"
-        rows.append([InlineKeyboardButton(text=label, callback_data=f"adm:casetrarity:{case.id}:{r.id}")])
+        label = f"✅ {r.emoji_fallback}" if rarity_filter == r.id else r.emoji_fallback
+        rarity_row.append(InlineKeyboardButton(text=label, callback_data=f"adm:caodds:{case.id}:0:{r.id}"))
+    for i in range(0, len(rarity_row), 4):
+        rows.append(rarity_row[i : i + 4])
+
+    for card in chunk:
+        weight = odds_by_card.get(card.id)
+        label = f"{card.rarity.emoji_fallback} {card.name}: {weight:g}" if weight else f"{card.rarity.emoji_fallback} {card.name}: —"
+        rows.append(
+            [InlineKeyboardButton(text=label, callback_data=f"adm:caoddsset:{case.id}:{card.id}:{page}:{rarity_filter}")]
+        )
+
+    nav = []
+    if page > 0:
+        nav.append(InlineKeyboardButton(text="⬅️", callback_data=f"adm:caodds:{case.id}:{page - 1}:{rarity_filter}"))
+    nav.append(InlineKeyboardButton(text=f"{page + 1}/{total_pages}", callback_data="noop"))
+    if page < total_pages - 1:
+        nav.append(InlineKeyboardButton(text="➡️", callback_data=f"adm:caodds:{case.id}:{page + 1}:{rarity_filter}"))
+    if nav:
+        rows.append(nav)
+
     rows.append([InlineKeyboardButton(text="🔙 Назад", callback_data=f"adm:case:{case.id}")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 

@@ -15,7 +15,13 @@
     <td>{{ c.price_tokens }} 🪙</td>
     <td>{% if c.is_active %}<span class="pill pill-ok">активен</span>{% else %}<span class="pill pill-muted">выключен</span>{% endif %}</td>
     <td>
-      {% for o in c.odds %}{% if o.weight > 0 %}{{ o.rarity.emoji_fallback }} {{ o.rarity.name }} ({{ o.weight }}){% if not loop.last %}, {% endif %}{% endif %}{% endfor %}
+      {% set included = c.card_odds | selectattr('weight', 'gt', 0) | list %}
+      {% if included %}
+        {{ included|length }} карточек
+        ({% set seen = [] %}{% for o in included %}{% if o.card.rarity.name not in seen %}{% set _ = seen.append(o.card.rarity.name) %}{{ o.card.rarity.emoji_fallback }}{% endif %}{% endfor %})
+      {% else %}
+        <span class="muted">пусто</span>
+      {% endif %}
     </td>
     <td>
       <a class="btn btn-sm btn-secondary" href="/cases/{{ c.id }}/edit">✏️</a>

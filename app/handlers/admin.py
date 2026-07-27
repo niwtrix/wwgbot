@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.activity_repo import EVENT_LABELS, list_events, log_event
 from app.db.cards_repo import find_card_by_query, get_card, get_rarity, list_active_cards, list_all_cards, list_rarities
-from app.db.cases_repo import get_case, list_cases, set_case_odds
+from app.db.cases_repo import case_rarity_summary, get_case, list_cases, set_case_card_odds
 from app.db.models import Card, Case, Rarity, User, UserCard
 from app.db.settings_repo import get_setting, set_setting
 from app.filters.owner import IsOwner
@@ -847,12 +847,13 @@ def _case_detail_text(case: Case) -> str:
     if case.description:
         lines.append(f"Описание: {escape(case.description)}")
     lines.append("")
-    lines.append("Содержимое:")
-    if case.odds:
-        for o in case.odds:
-            lines.append(f"{escape(o.rarity.emoji_fallback)} {escape(o.rarity.name)}: вес {o.weight:g}")
+    included = [o for o in case.card_odds if o.weight > 0]
+    lines.append(f"Содержимое: {len(included)} карточек")
+    rarities_in_case = case_rarity_summary(case)
+    if rarities_in_case:
+        lines.append("Редкости: " + ", ".join(f"{escape(r.emoji_fallback)} {escape(r.name)}" for r in rarities_in_case))
     else:
-        lines.append("— пусто, добавь редкости через «Содержимое» —")
+        lines.append("— пусто, добавь карточки через «Содержимое» —")
     return "\n".join(lines)
 
 
@@ -979,28 +980,34 @@ async def cb_case_delete_yes(callback: CallbackQuery, session: AsyncSession) -> 
 
 @router.callback_query(F.data.startswith("adm:caodds:"))
 async def cb_case_odds(callback: CallbackQuery, session: AsyncSession) -> None:
-    case_id = int(callback.data.split(":")[2])
+    _, _, case_id_raw, page_raw, rarity_filter = callback.data.split(":")
+    case_id = int(case_id_raw)
     case = await get_case(session, case_id)
     if case is None:
         await callback.answer("Кейс не найден.", show_alert=True)
         return
+
     rarities = await list_rarities(session)
+    cards = await list_active_cards(session)
+    if rarity_filter != "all":
+        cards = [c for c in cards if c.rarity_id == rarity_filter]
+
     await callback.message.edit_text(
         f"🎲 <b>Содержимое кейса «{escape(case.name)}»</b>\n\n"
-        "Тапни редкость, чтобы задать её вес в этом кейсе (0 — убрать из кейса).",
+        "Тапни карточку, чтобы задать её вес в этом кейсе (0 — убрать из кейса). Фильтруй по редкости кнопками сверху.",
         parse_mode="HTML",
-        reply_markup=case_odds_kb(case, rarities),
+        reply_markup=case_odds_kb(case, cards, int(page_raw), rarity_filter, rarities),
     )
     await callback.answer()
 
 
-@router.callback_query(F.data.startswith("adm:casetrarity:"))
+@router.callback_query(F.data.startswith("adm:caoddsset:"))
 async def cb_case_odds_field(callback: CallbackQuery, state: FSMContext) -> None:
-    _, _, case_id, rarity_id = callback.data.split(":")
+    _, _, case_id, card_id, page, rarity_filter = callback.data.split(":")
     await state.set_state(EditCaseOdds.waiting_value)
-    await state.update_data(case_id=int(case_id), rarity_id=rarity_id)
+    await state.update_data(case_id=int(case_id), card_id=int(card_id), page=int(page), rarity_filter=rarity_filter)
     await callback.message.answer(
-        "Пришли вес этой редкости в кейсе (число, 0 — убрать из кейса), или /cancel:"
+        "Пришли вес этой карточки в кейсе (число, 0 — убрать из кейса), или /cancel:"
     )
     await callback.answer()
 
@@ -1017,12 +1024,19 @@ async def on_case_odds_value(message: Message, state: FSMContext, session: Async
         await message.answer("Нужно неотрицательное число, например 100 или 0. Попробуй ещё раз:")
         return
 
-    await set_case_odds(session, data["case_id"], data["rarity_id"], weight)
+    await set_case_card_odds(session, data["case_id"], data["card_id"], weight)
     case = await get_case(session, data["case_id"])
     await state.clear()
+
+    rarities = await list_rarities(session)
+    cards = await list_active_cards(session)
+    rarity_filter = data["rarity_filter"]
+    if rarity_filter != "all":
+        cards = [c for c in cards if c.rarity_id == rarity_filter]
+
     await message.answer(
         f"✅ Обновлено содержимое кейса «{escape(case.name)}».",
-        reply_markup=back_to_main_kb(),
+        reply_markup=case_odds_kb(case, cards, data["page"], rarity_filter, rarities),
     )
 
 

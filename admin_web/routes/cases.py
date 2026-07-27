@@ -9,8 +9,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from admin_web.auth import current_user, require_perm
 from admin_web.config import TEMPLATES_DIR
 from admin_web.deps import get_session
-from app.db.cards_repo import list_rarities
-from app.db.cases_repo import get_case, list_cases, set_case_odds
+from app.db.cards_repo import list_all_cards
+from app.db.cases_repo import get_case, list_cases, set_case_card_odds
 from app.db.models import Case
 
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
@@ -33,7 +33,7 @@ async def case_new_form(request: Request):
         return resp
     return templates.TemplateResponse(
         "case_edit.html", {"request": request,
-            "user": current_user(request), "active": "cases", "case": None, "rarities": []}
+            "user": current_user(request), "active": "cases", "case": None, "cards": [], "odds_by_card": {}}
     )
 
 
@@ -75,12 +75,12 @@ async def case_edit_form(case_id: int, request: Request, session: AsyncSession =
     case = await get_case(session, case_id)
     if case is None:
         return RedirectResponse(url="/cases", status_code=303)
-    rarities = await list_rarities(session)
-    odds_by_rarity = {o.rarity_id: o.weight for o in case.odds}
+    cards = await list_all_cards(session)
+    odds_by_card = {o.card_id: o.weight for o in case.card_odds}
     return templates.TemplateResponse(
         "case_edit.html",
         {"request": request,
-            "user": current_user(request), "active": "cases", "case": case, "rarities": rarities, "odds_by_rarity": odds_by_rarity},
+            "user": current_user(request), "active": "cases", "case": case, "cards": cards, "odds_by_card": odds_by_card},
     )
 
 
@@ -99,11 +99,11 @@ async def case_edit_submit(case_id: int, request: Request, session: AsyncSession
     case.is_active = form.get("is_active") == "on"
     await session.commit()
 
-    rarities = await list_rarities(session)
-    for r in rarities:
-        raw = str(form.get(f"weight_{r.id}", "")).strip().replace(",", ".")
+    cards = await list_all_cards(session)
+    for c in cards:
+        raw = str(form.get(f"weight_{c.id}", "")).strip().replace(",", ".")
         weight = float(raw) if raw else 0.0
-        await set_case_odds(session, case_id, r.id, weight)
+        await set_case_card_odds(session, case_id, c.id, weight)
 
     return RedirectResponse(url=f"/cases/{case_id}/edit", status_code=303)
 

@@ -3,30 +3,58 @@
 {% block content %}
 <h1>{{ '➕ Новый кейс' if not case else '✏️ ' + case.name }}</h1>
 
-<div class="card" style="max-width:520px">
 <form method="post" action="{{ '/cases/new' if not case else '/cases/' + case.id|string + '/edit' }}">
-  <label>Название</label>
-  <input name="name" value="{{ case.name if case else '' }}" required>
+  <div class="card" style="max-width:520px">
+    <label>Название</label>
+    <input name="name" value="{{ case.name if case else '' }}" required>
 
-  <label>Цена (токены)</label>
-  <input name="price_tokens" type="number" value="{{ case.price_tokens if case else 100 }}">
+    <label>Цена (токены)</label>
+    <input name="price_tokens" type="number" value="{{ case.price_tokens if case else 100 }}">
 
-  <label>Описание</label>
-  <textarea name="description">{{ case.description if case else '' }}</textarea>
+    <label>Описание</label>
+    <textarea name="description">{{ case.description if case else '' }}</textarea>
 
-  <label style="display:flex; align-items:center; gap:8px; margin-top:16px;">
-    <input type="checkbox" name="is_active" style="width:auto" {{ 'checked' if (not case) or case.is_active else '' }}>
-    <span>Активен</span>
-  </label>
+    <label style="display:flex; align-items:center; gap:8px; margin-top:16px;">
+      <input type="checkbox" name="is_active" style="width:auto" {{ 'checked' if (not case) or case.is_active else '' }}>
+      <span>Активен</span>
+    </label>
+  </div>
 
   {% if case %}
-  <h2>Содержимое (вес по редкости, 0 — убрать)</h2>
-  {% for r in rarities %}
-  <div class="form-row">
-    <div style="flex:2">{{ r.emoji_fallback }} {{ r.name }}</div>
-    <div><input name="weight_{{ r.id }}" type="number" step="0.1" value="{{ odds_by_rarity.get(r.id, 0) }}"></div>
+  <h2>Содержимое (вес по конкретным карточкам, 0 — убрать из кейса)</h2>
+
+  <div class="card">
+    <div class="form-row" style="margin-bottom:14px">
+      <div><input id="cardSearch" placeholder="Поиск по имени карточки..." oninput="filterCardRows()"></div>
+      <div>
+        <select id="rarityFilter" onchange="filterCardRows()">
+          <option value="">Все редкости</option>
+          {% set seen_rarities = [] %}
+          {% for c in cards %}
+            {% if c.rarity.id not in seen_rarities %}
+              {% set _ = seen_rarities.append(c.rarity.id) %}
+              <option value="{{ c.rarity.id }}">{{ c.rarity.emoji_fallback }} {{ c.rarity.name }}</option>
+            {% endif %}
+          {% endfor %}
+        </select>
+      </div>
+      <div style="flex:0"><button type="button" class="btn btn-secondary" onclick="fillVisible(100)">Заполнить видимые: 100</button></div>
+      <div style="flex:0"><button type="button" class="btn btn-secondary" onclick="fillVisible(0)">Обнулить видимые</button></div>
+    </div>
+
+    <table id="cardOddsTable">
+      <tr><th>Карточка</th><th>Редкость</th><th style="width:120px">Вес</th></tr>
+      {% for c in cards %}
+      <tr class="odds-row" data-rarity="{{ c.rarity.id }}" data-name="{{ c.name|lower }}">
+        <td>{{ c.name }}</td>
+        <td>{{ c.rarity.emoji_fallback }} {{ c.rarity.name }}</td>
+        <td><input name="weight_{{ c.id }}" type="number" step="0.1" value="{{ odds_by_card.get(c.id, 0) }}"></td>
+      </tr>
+      {% endfor %}
+    </table>
   </div>
-  {% endfor %}
+  {% else %}
+  <p class="muted">Сохрани кейс, чтобы настроить содержимое по карточкам.</p>
   {% endif %}
 
   <div style="margin-top:20px; display:flex; gap:10px;">
@@ -34,5 +62,23 @@
     <a class="btn btn-secondary" href="/cases">Отмена</a>
   </div>
 </form>
-</div>
+
+<script>
+function filterCardRows() {
+  const q = document.getElementById('cardSearch').value.toLowerCase();
+  const rarity = document.getElementById('rarityFilter').value;
+  document.querySelectorAll('#cardOddsTable .odds-row').forEach(row => {
+    const matchesName = row.dataset.name.includes(q);
+    const matchesRarity = !rarity || row.dataset.rarity === rarity;
+    row.style.display = (matchesName && matchesRarity) ? '' : 'none';
+  });
+}
+function fillVisible(value) {
+  document.querySelectorAll('#cardOddsTable .odds-row').forEach(row => {
+    if (row.style.display !== 'none') {
+      row.querySelector('input').value = value;
+    }
+  });
+}
+</script>
 {% endblock %}

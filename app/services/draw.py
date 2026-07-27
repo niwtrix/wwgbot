@@ -101,3 +101,40 @@ def weighted_draw(
 
     # last resort: ignore pity entirely rather than fail the pull
     return random.choice(cards)
+
+
+def weighted_draw_by_card(
+    cards: list[Card],
+    card_weights: dict[int, float],
+    owned: dict[int, UserCard] | None = None,
+    pity_floor: int = 5,
+    pity_ramp: int = 10,
+    pity_min_fraction: float = 0.1,
+) -> Card | None:
+    """Direct single-level weighted draw across specific cards (e.g. a case's own per-card
+    odds table), still respecting the duplicate-pity multiplier per card."""
+    if not cards:
+        return None
+
+    owned = owned or {}
+
+    weights = [
+        card_weights.get(c.id, 0.0) * _pity_multiplier(owned.get(c.id), pity_floor, pity_ramp, pity_min_fraction)
+        for c in cards
+    ]
+    total = sum(weights)
+
+    if total <= 0:
+        # everything pity-blocked (or zero-weighted) — fall back to ignoring pity
+        weights = [card_weights.get(c.id, 0.0) for c in cards]
+        total = sum(weights)
+        if total <= 0:
+            return None
+
+    roll = random.uniform(0, total)
+    acc = 0.0
+    for card, w in zip(cards, weights):
+        acc += w
+        if roll <= acc:
+            return card
+    return cards[-1]

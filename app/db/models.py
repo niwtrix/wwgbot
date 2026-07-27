@@ -94,9 +94,13 @@ class Case(Base):
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
 
     odds: Mapped[list["CaseOdds"]] = relationship(back_populates="case", cascade="all, delete-orphan")
+    card_odds: Mapped[list["CaseCardOdds"]] = relationship(back_populates="case", cascade="all, delete-orphan")
 
 
 class CaseOdds(Base):
+    """Legacy rarity-based case odds — superseded by CaseCardOdds (per-card weights).
+    Kept only so old rows aren't silently dropped; no longer read by the draw logic."""
+
     __tablename__ = "case_odds"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -106,6 +110,18 @@ class CaseOdds(Base):
 
     case: Mapped["Case"] = relationship(back_populates="odds")
     rarity: Mapped["Rarity"] = relationship()
+
+
+class CaseCardOdds(Base):
+    __tablename__ = "case_card_odds"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    case_id: Mapped[int] = mapped_column(ForeignKey("cases.id"))
+    card_id: Mapped[int] = mapped_column(ForeignKey("cards.id"))
+    weight: Mapped[float] = mapped_column(Float, default=100.0)
+
+    case: Mapped["Case"] = relationship(back_populates="card_odds")
+    card: Mapped["Card"] = relationship()
 
 
 class Trade(Base):

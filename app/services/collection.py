@@ -9,7 +9,7 @@ from app.db.activity_repo import log_event
 from app.db.cards_repo import list_active_cards
 from app.db.models import Card, Case, User, UserCard
 from app.db.settings_repo import get_setting, get_setting_int
-from app.services.draw import weighted_draw
+from app.services.draw import weighted_draw, weighted_draw_by_card
 from app.services.format import display_name as _name
 
 
@@ -104,25 +104,25 @@ async def buy_extra_roll(session: AsyncSession, user: User) -> tuple[PullResult,
 
 
 async def open_case(session: AsyncSession, user: User, case: Case) -> PullResult | None:
-    """Open a case: costs case.price_tokens, draws from the case's own rarity odds table
+    """Open a case: costs case.price_tokens, draws from the case's own per-card odds table
     (independent of the normal roll weights). Returns None if unaffordable or the case
     has no eligible cards right now."""
     if user.tokens < case.price_tokens:
         return None
 
-    rarity_weights = {o.rarity_id: o.weight for o in case.odds if o.weight > 0}
-    if not rarity_weights:
+    card_weights = {o.card_id: o.weight for o in case.card_odds if o.weight > 0}
+    if not card_weights:
         return None
 
     all_cards = await list_active_cards(session)
-    cards = [c for c in all_cards if c.rarity_id in rarity_weights]
+    cards = [c for c in all_cards if c.id in card_weights]
     if not cards:
         return None
 
     owned = await _get_owned_map(session, user.id)
     floor, ramp, min_fraction = await _get_pity_settings(session)
 
-    card = weighted_draw(cards, owned, floor, ramp, min_fraction, rarity_weights=rarity_weights)
+    card = weighted_draw_by_card(cards, card_weights, owned, floor, ramp, min_fraction)
     if card is None:
         return None
 
