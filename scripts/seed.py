@@ -17,7 +17,7 @@ CARDS_SEED_PATH = BASE_DIR / "data" / "cards_seed.json"
 
 async def seed_rarities() -> None:
     async with async_session() as session:
-        for rarity_id, name, weight, token_reward, emoji_fallback, sort_order, case_only in DEFAULT_RARITIES:
+        for rarity_id, name, weight, token_reward, emoji_fallback, sort_order, case_only, upgrade_value in DEFAULT_RARITIES:
             existing = await session.get(Rarity, rarity_id)
             if existing:
                 continue
@@ -30,6 +30,7 @@ async def seed_rarities() -> None:
                     emoji_fallback=emoji_fallback,
                     sort_order=sort_order,
                     case_only=case_only,
+                    upgrade_value=upgrade_value,
                 )
             )
         await session.commit()

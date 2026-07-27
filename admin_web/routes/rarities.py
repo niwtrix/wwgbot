@@ -62,6 +62,7 @@ async def rarity_new_submit(request: Request, session: AsyncSession = Depends(ge
         name=name,
         weight=float(form.get("weight") or 10),
         token_reward=int(form.get("token_reward") or 5),
+        upgrade_value=float(form.get("upgrade_value") or 5),
         emoji_fallback=str(form.get("emoji_fallback") or "🔹"),
         emoji_id=str(form.get("emoji_id", "")).strip() or None,
         sort_order=max_order + 1,
@@ -95,6 +96,7 @@ async def rarity_edit_submit(rarity_id: str, request: Request, session: AsyncSes
     rarity.name = str(form.get("name", "")).strip()
     rarity.weight = float(form.get("weight") or rarity.weight)
     rarity.token_reward = int(form.get("token_reward") or rarity.token_reward)
+    rarity.upgrade_value = float(form.get("upgrade_value") or rarity.upgrade_value)
     rarity.emoji_fallback = str(form.get("emoji_fallback") or rarity.emoji_fallback)
     rarity.emoji_id = str(form.get("emoji_id", "")).strip() or None
     rarity.case_only = form.get("case_only") == "on"

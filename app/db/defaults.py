@@ -1,11 +1,14 @@
 DEFAULT_RARITIES = [
-    # id, name, weight, token_reward, emoji_fallback, sort_order, case_only
-    ("rare", "Редкая", 25.0, 15, "🔹", 0, False),
-    ("very_rare", "Сверхредкая", 30.0, 20, "🔷", 1, False),
-    ("epic", "Эпическая", 20.0, 25, "💎", 2, False),
-    ("mythic", "Мифическая", 15.0, 40, "👑", 3, False),
-    ("legendary", "Легендарная", 10.0, 70, "🌟", 4, False),
-    ("chromatic", "Хроматическая", 0.0, 0, "✨", 5, True),
+    # id, name, weight, token_reward, emoji_fallback, sort_order, case_only, upgrade_value
+    ("rare", "Редкая", 25.0, 15, "🔹", 0, False, 15),
+    ("very_rare", "Сверхредкая", 30.0, 20, "🔷", 1, False, 20),
+    ("epic", "Эпическая", 20.0, 25, "💎", 2, False, 25),
+    ("mythic", "Мифическая", 15.0, 40, "👑", 3, False, 40),
+    ("legendary", "Легендарная", 10.0, 70, "🌟", 4, False, 70),
+    # token_reward stays 0 — it's case-only, awarding tokens on top would let case-opening
+    # print free tokens. upgrade_value is set separately (~2x legendary) since it's the
+    # rarest tier and needs a real price for /upgrade to treat it meaningfully.
+    ("chromatic", "Хроматическая", 0.0, 0, "✨", 5, True, 150),
 ]
 
 DEFAULT_SETTINGS = {
@@ -33,6 +36,10 @@ DEFAULT_SETTINGS = {
     "reminder_b_emoji_id": "5242576934222701334",
     "reminder_b_text": "Твоя серия ежедневных бонусов совсем скоро сгорит!",
     "reminder_b_last_sent_date": "",
+    "upgrade_max_sacrifice_items": "6",
+    "upgrade_fairness_factor": "0.9",
+    "upgrade_min_chance_percent": "1",
+    "upgrade_max_chance_percent": "95",
     "start_text": (
         "🎴 <b>WWGang Cards</b>\n\n"
         "Собирай уникальные карточки участников WWGang! У каждой — своя редкость, роль, "
@@ -52,6 +59,7 @@ DEFAULT_SETTINGS = {
         "/profile — токены, прогресс коллекции и статус кулдауна\n"
         "/mycards — список твоих карточек\n"
         "/trade @username — предложить другому игроку обмен карточками\n"
+        "/upgrade — рискнуть карточками ради той, что хочешь получить (шанс успеха)\n"
         "/invite — твоя реферальная ссылка, приглашай друзей за токены\n"
         "/top — топ игроков по токенам или по количеству карточек (переключается кнопками)\n"
         "/help — подробная справка по всем механикам\n\n"
@@ -77,6 +85,8 @@ DEFAULT_SETTINGS = {
         "<b>/trade @username</b> — предложить обмен карточками. Собеседник должен принять "
         "предложение, дальше каждый сам выбирает, какие карточки отдаёт (можно и совсем ничего), "
         "и в конце оба должны отдельно подтвердить обмен — иначе он не состоится.\n\n"
+        "<b>/upgrade</b> — поставь свои карточки и выбери карточку, которую хочешь получить. "
+        "Шанс успеха зависит от соотношения их ценности. Если не повезёт — ставка сгорает без возврата.\n\n"
         "<b>/invite</b> — твоя личная реферальная ссылка. Друг переходит по ней и запускает бота "
         "первый раз — тебе начисляются токены.\n\n"
         "<b>/top</b> — таблица лидеров: по токенам или по общему числу собранных карточек — "

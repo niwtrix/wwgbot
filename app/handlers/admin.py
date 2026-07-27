@@ -70,6 +70,7 @@ RARITY_FIELD_LABELS = {
     "name": "название",
     "weight": "вес (число, влияет на шанс выпадения)",
     "token_reward": "награду токенами (целое число)",
+    "upgrade_value": "ценность для /upgrade (число, отдельно от награды токенами)",
     "emoji_fallback": "обычный emoji-заменитель",
     "emoji_id": "ID премиум emoji (custom_emoji_id)",
 }
@@ -567,6 +568,7 @@ async def cb_rarity_detail(callback: CallbackQuery, session: AsyncSession) -> No
         f"🏷 <b>{escape(rarity.name)}</b>\n\n"
         f"Вес: {rarity.weight:g}\n"
         f"Награда токенами: {rarity.token_reward}\n"
+        f"Ценность для /upgrade: {rarity.upgrade_value:g}\n"
         f"Запасной emoji: {escape(rarity.emoji_fallback)}\n"
         f"Премиум emoji ID: <code>{escape(emoji_id_text)}</code>\n"
         f"Карточек с этой редкостью: {count}"
@@ -610,6 +612,12 @@ async def on_rarity_field_value(message: Message, state: FSMContext, session: As
             rarity.token_reward = int(raw)
         except ValueError:
             await message.answer("Нужно целое число. Попробуй ещё раз:")
+            return
+    elif field == "upgrade_value":
+        try:
+            rarity.upgrade_value = float(raw.replace(",", "."))
+        except ValueError:
+            await message.answer("Нужно число, например 150 или 22.5. Попробуй ещё раз:")
             return
     elif field == "emoji_id":
         rarity.emoji_id = None if raw == "-" else raw

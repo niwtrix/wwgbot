@@ -8,12 +8,13 @@
 
 <div class="card">
 <table>
-  <tr><th>Редкость</th><th>Вес</th><th>Награда</th><th>Карточек</th><th>Только из кейсов</th><th>Действия</th></tr>
+  <tr><th>Редкость</th><th>Вес</th><th>Награда</th><th>Ценность (upgrade)</th><th>Карточек</th><th>Только из кейсов</th><th>Действия</th></tr>
   {% for r in rarities %}
   <tr>
     <td>{{ r.emoji_fallback }} {{ r.name }}<div class="muted mono">{{ r.id }}</div></td>
     <td>{{ r.weight }}</td>
     <td>{{ r.token_reward }} 🪙</td>
+    <td>{{ r.upgrade_value }}</td>
     <td>{{ counts[r.id] }}</td>
     <td>{{ '✅' if r.case_only else '—' }}</td>
     <td>

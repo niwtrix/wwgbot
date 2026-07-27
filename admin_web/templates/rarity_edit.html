@@ -11,6 +11,7 @@
   <div class="form-row">
     <div><label>Вес (шанс выпадения)</label><input name="weight" type="number" step="0.1" value="{{ rarity.weight if rarity else 10 }}"></div>
     <div><label>Награда токенами</label><input name="token_reward" type="number" value="{{ rarity.token_reward if rarity else 5 }}"></div>
+    <div><label>Ценность для /upgrade</label><input name="upgrade_value" type="number" step="0.1" value="{{ rarity.upgrade_value if rarity else 5 }}"></div>
   </div>
 
   <div class="form-row">

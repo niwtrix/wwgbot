@@ -19,6 +19,7 @@ class Rarity(Base):
     name: Mapped[str] = mapped_column(String(64))  # display name, e.g. "Редкая"
     weight: Mapped[float] = mapped_column(Float, default=10.0)  # relative pull chance
     token_reward: Mapped[int] = mapped_column(Integer, default=5)
+    upgrade_value: Mapped[float] = mapped_column(Float, default=0.0)  # used only by /upgrade odds math
     emoji_id: Mapped[str | None] = mapped_column(String(64), nullable=True)  # custom_emoji_id
     emoji_fallback: Mapped[str] = mapped_column(String(16), default="🔹")
     sort_order: Mapped[int] = mapped_column(Integer, default=0)

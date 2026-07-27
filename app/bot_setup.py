@@ -5,7 +5,7 @@ from aiogram.enums import ParseMode
 from aiogram.types import BotCommand, BotCommandScopeChat, BotCommandScopeDefault
 
 from app.config import BOT_TOKEN, OWNER_IDS, PROXY_URL
-from app.handlers import admin, trade, user
+from app.handlers import admin, trade, upgrade, user
 from app.middlewares.db import DbSessionMiddleware
 from app.middlewares.timing import TimingMiddleware
 
@@ -17,6 +17,7 @@ USER_COMMANDS = [
     BotCommand(command="profile", description="Мой профиль"),
     BotCommand(command="mycards", description="Мои карточки"),
     BotCommand(command="trade", description="Предложить обмен карточками"),
+    BotCommand(command="upgrade", description="Апгрейд карточек (риск)"),
     BotCommand(command="invite", description="Реферальная ссылка"),
     BotCommand(command="top", description="Топ игроков"),
     BotCommand(command="help", description="Помощь"),
@@ -44,6 +45,7 @@ def create_bot_and_dispatcher() -> tuple[Bot, Dispatcher]:
 
     dp.include_router(admin.router)
     dp.include_router(trade.router)
+    dp.include_router(upgrade.router)
     dp.include_router(user.router)
 
     return bot, dp

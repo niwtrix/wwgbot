@@ -3,13 +3,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import ActivityLog
 
-EVENT_TYPES = ["pull", "extra_roll", "case_open", "trade", "token_grant", "broadcast", "referral", "daily_bonus"]
+EVENT_TYPES = ["pull", "extra_roll", "case_open", "trade", "upgrade", "token_grant", "broadcast", "referral", "daily_bonus"]
 
 EVENT_LABELS = {
     "pull": "🎴 Пуллы",
     "extra_roll": "💰 Доп. роллы",
     "case_open": "🎁 Кейсы",
     "trade": "🔁 Трейды",
+    "upgrade": "🔧 Апгрейды",
     "token_grant": "🪙 Начисления",
     "broadcast": "📢 Рассылки",
     "referral": "🔗 Рефералы",

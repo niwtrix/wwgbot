@@ -137,6 +137,7 @@ def rarity_edit_menu_kb(rarity: Rarity) -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text="✏️ Название", callback_data=f"adm:rfield:{rarity.id}:name")],
         [InlineKeyboardButton(text="✏️ Вес (шанс выпадения)", callback_data=f"adm:rfield:{rarity.id}:weight")],
         [InlineKeyboardButton(text="✏️ Награда токенами", callback_data=f"adm:rfield:{rarity.id}:token_reward")],
+        [InlineKeyboardButton(text="✏️ Ценность для /upgrade", callback_data=f"adm:rfield:{rarity.id}:upgrade_value")],
         [InlineKeyboardButton(text="✏️ Обычный emoji (запасной)", callback_data=f"adm:rfield:{rarity.id}:emoji_fallback")],
         [InlineKeyboardButton(text="🆔 Премиум emoji ID", callback_data=f"adm:rfield:{rarity.id}:emoji_id")],
         [InlineKeyboardButton(text=case_only_text, callback_data=f"adm:rtogglecaseonly:{rarity.id}")],
